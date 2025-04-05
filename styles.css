@@ -1,0 +1,327 @@
+/* ========================= */
+/* == Obsidian: FootLinker == */
+/* ========================= */
+
+/* ------------------------------ */
+/* -- General FootLinker Styles -- */
+/* ------------------------------ */
+.footlinker {
+    margin-top: 30px !important;
+    margin-bottom: 20px !important;
+    padding-top: 10px !important;
+    opacity: 1;
+    transition: opacity 600ms ease-in-out;
+    /* fade in footlinker */
+}
+
+.footlinker--hidden {
+    opacity: 0;
+}
+
+/* ---------------------- */
+/* -- Backlinks Styles -- */
+/* ---------------------- */
+.footlinker--backlinks,
+.footlinker--outlinks,
+.footlinker--documents,
+.footlinker--email,
+.footlinker--photo,
+.footlinker--private,
+.footlinker--other,
+.footlinker--tasks,
+.footlinker--links {
+    opacity: var(--footlinker-links-opacity, 1);
+}
+
+.footlinker--backlinks::before {
+    content: 'Backlinks';
+}
+
+.footlinker--outlinks::before {
+    content: 'Outlinks';
+}
+
+.footlinker--links::before {
+    content: 'Links';
+}
+
+.footlinker--documents::before {
+    content: 'Documents';
+}
+
+.footlinker--email::before {
+    content: 'Email';
+}
+
+.footlinker--photo::before {
+    content: 'Photos';
+}
+
+.footlinker--private::before {
+    content: 'Private';
+}
+
+.footlinker--tasks::before {
+    content: 'Tasks';
+}
+
+.footlinker--other::before {
+    content: 'Other';
+}
+
+.footlinker--nutrition::before {
+    content: 'Nutrition';
+}
+
+.footlinker--backlinks::before,
+.footlinker--outlinks::before,
+.footlinker--documents::before,
+.footlinker--email::before,
+.footlinker--photo::before,
+.footlinker--private::before,
+.footlinker--other::before,
+.footlinker--nutrition::before,
+.footlinker--tasks::before,
+.footlinker--links::before {
+    position: relative;
+    /* bottom: 0; */
+    top: 10px;
+    text-transform: uppercase;
+    font-variant: var(--h2-variant);
+    letter-spacing: -0.015em;
+    line-height: var(--h2-line-height);
+    font-size: var(--h2-size);
+    color: var(--h2-color);
+    font-weight: var(--h2-weight);
+    font-style: var(--h2-style);
+    font-family: var(--h2-font);
+}
+
+.footlinker--backlinks ul,
+.footlinker--outlinks ul,
+.footlinker--documents ul,
+.footlinker--email ul,
+.footlinker--photo ul,
+.footlinker--private ul,
+.footlinker--other ul,
+.footlinker--tasks ul,
+.footlinker--links ul {
+    /* list-style: none; */
+    /* display: flex; */
+    /* flex-direction: row; */
+    /* flex-wrap: wrap; */
+    /* margin: 0 !important; */
+    /* padding-left: 20px !important; */
+    /*padding-top: 10px; */
+}
+
+.footlinker--backlinks ul li,
+.footlinker--outlinks ul li,
+.footlinker--documents ul li,
+.footlinker--email ul li,
+.footlinker--photo ul li,
+.footlinker--private ul li,
+.footlinker--other ul li,
+.footlinker--tasks ul li,
+.footlinker--links ul li {
+    /* margin-inline-start: 0 !important; */
+   /*  margin-bottom: -5px; */
+   font-size: 12px;
+}
+
+/* ----------------- */
+/* -- Date Styles -- */
+/* ----------------- */
+.footlinker--created-date,
+.footlinker--modified-date {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    list-style: none;
+    margin-top: 10px;
+    padding-left: 0;
+    font-size: .8em;
+    filter: brightness(85%);
+    color: var(--footlinker-date-color, var(--text-accent));
+    opacity: var(--footlinker-dates-opacity, 1);
+}
+
+.footlinker--created-date {
+    margin-right: 20px;
+    margin-left: 20px;
+}
+
+.footlinker--created-date::before,
+.footlinker--modified-date::before {
+    font-size: .7em;
+    text-transform: uppercase;
+    padding: 2px 8px 0 0;
+    color: var(--footlinker-date-color, var(--text-accent));
+}
+
+.footlinker--created-date::before {
+    content: "created date";
+}
+
+.footlinker--modified-date::before {
+    content: "modified date";
+}
+
+/* ---------------------------- */
+/* -- Editor-specific Styles -- */
+/* ---------------------------- */
+.cm-sizer {
+    width: 100%;
+    padding-bottom: 0 !important;
+}
+
+.cm-sizer>.footlinker {
+    margin-top: 15px !important;
+    max-width: var(--max-width);
+    width: var(--line-width);
+    margin-inline: var(--content-margin) !important;
+}
+
+.cm-sizer .footlinker--backlinks {
+    margin-top: 0;
+}
+
+.cm-scroller .cm-contentContainer>.cm-content,
+.markdown-source-view .cm-contentContainer>.cm-content {
+    padding-top: 0 !important;
+    padding-bottom: unset !important;
+}
+
+.cm-scroller .footlinker--backlinks,
+.markdown-source-view .footlinker--backlinks {
+    margin-top: 0;
+}
+
+.cm-scroller .footlinker--created-date,
+.cm-scroller .footlinker--modified-date,
+.markdown-source-view .footlinker--created-date,
+.markdown-source-view .footlinker--modified-date,
+.cm-sizer .footlinker--created-date,
+.cm-sizer .footlinker--modified-date {
+    display: inline-block;
+    margin-right: 20px;
+}
+
+/* ---------------------------- */
+/* -- Preview-specific Styles -- */
+/* ---------------------------- */
+.markdown-preview-sizer {
+    width: 100%;
+    padding-bottom: 0 !important;
+}
+
+.markdown-reading-view .markdown-preview-sizer {
+    width: 100%;
+}
+
+/* Update the FootLinker positioning */
+.markdown-reading-view .markdown-preview-sizer>.footlinker {
+    padding-top: var(--footlinker-top-padding, 10px) !important;
+    padding-bottom: 0 !important;
+    margin-bottom: var(--footlinker-margin-bottom, 0) !important;
+}
+
+
+/* ----------- */
+/* -- other -- */
+/* ----------- */
+
+/* fix note embed height scroll in canvas */
+.canvas-node-content.markdown-embed div.cm-sizer,
+.canvas-node-content.markdown-embed div.markdown-preview-sizer {
+    min-height: unset !important;
+}
+
+.footlinker>.footlinker--dashed-line {
+    border-top-width: var(--footlinker-border-width, 1px);
+    border-top-style: var(--footlinker-border-style, dashed);
+    border-top-color: var(--footlinker-border-color, var(--text-accent));
+    opacity: var(--footlinker-border-opacity, 1);
+}
+
+.footlinker>.footlinker--dates-wrapper {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-end;
+    align-items: center;
+    color: var(--footlinker-date-color);
+    border-top-width: var(--footlinker-border-width, 1px);
+    border-top-style: var(--footlinker-border-style, dashed);
+    border-top-color: var(--footlinker-border-color, var(--text-accent));
+    margin-top: 10px;
+
+}
+
+
+/* Settings styles */
+.footlinker-settings input[type='text'],
+.footlinker-settings input[type='number'] {
+    text-align: right;
+}
+
+/* --------------------- */
+/* -- Settings Styles -- */
+/* --------------------- */
+.footlinker-settings {
+    display: flex;
+    flex-direction: column;
+}
+
+.footlinker-settings .footlinker-info {
+    margin-bottom: 10px;
+    padding: 15px 20px;
+    background-color: var(--background-secondary);
+    color: var(--text-accent-hover);
+    border-radius: 10px;
+}
+
+.footlinker-settings .footlinker-example-title {
+    margin-top: 60px;
+    margin-bottom: 10px;
+    border-top: 1px solid var(--text-accent);
+    padding-top: 30px;
+}
+
+.footlinker-settings .footlinker-example {
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+.footlinker-settings .footlinker-example img {
+    max-width: 100%;
+    height: auto;
+}
+
+.footlinker-settings .setting-item {
+    border: none;
+    background-color: var(--background-secondary);
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.footlinker-settings .setting-item-name {
+    font-weight: bold;
+}
+
+.footlinker-settings .setting-item-description {
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+.footlinker-settings textarea {
+    background-color: var(--background-primary-alt);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 5px;
+    padding: 10px;
+    font-family: var(--font-monospace);
+    width: 400px !important;
+    height: 250px !important;
+    resize: vertical;
+}
+
