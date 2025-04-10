@@ -223,12 +223,12 @@ class FootLinkerPlugin extends Plugin {
     let newdate = year + month + day;
   
     // Begin Journals
-    if (file.path.includes("Chronological/Journals")) {
+    if (file.path.includes("Chrono/Journals")) {
       const sections = [
-        { path: 'Chronological/Documents', cls: 'documents' },
-        { path: 'Chronological/Email', cls: 'email' },
-        { path: 'Chronological/Photos', cls: 'photo' },
-        { path: 'Chronological/Private', cls: 'private' }
+        { path: 'Chrono/Documents', cls: 'documents' },
+        { path: 'Chrono/Email', cls: 'email' },
+        { path: 'Chrono/Photos', cls: 'photo' },
+        { path: 'Chrono/Private', cls: 'private' }
       ];
   
       sections.forEach(section => {
@@ -258,10 +258,10 @@ class FootLinkerPlugin extends Plugin {
     } else if (file.path.includes("Notes") || file.path.includes("CRM/People") || file.path.includes("CRM/Places") || file.path.includes("CRM/Organizations")) {
       // Begin Notes
       const sections = [
-        { path: 'Chronological/Documents', cls: 'documents' },
-        { path: 'Chronological/Email', cls: 'email' },
-        { path: 'Chronological/Photos', cls: 'photo' },
-        { path: 'Chronological/Private', cls: 'private' }
+        { path: 'Chrono/Documents', cls: 'documents' },
+        { path: 'Chrono/Email', cls: 'email' },
+        { path: 'Chrono/Photos', cls: 'photo' },
+        { path: 'Chrono/Private', cls: 'private' }
       ];
   
       sections.forEach(section => {

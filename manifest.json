@@ -1,0 +1,9 @@
+{
+    "id": "jots-footlinker",
+    "name": "FootLinker",
+    "version": "1.0.0",
+    "minAppVersion": "0.15.0",
+    "description": "Adds a footer to notes with useful information such as backlinks, creation date, and last modified date",
+    "author": "Your Name",
+    "isDesktopOnly": false
+}
