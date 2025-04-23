@@ -10,8 +10,6 @@ function aliasesContains(fileName, aliases) {
 class FootLinkerPlugin extends Plugin {
   async onload() {
     console.log("Loading FootLinker plugin...");
-    // Load the plugin's CSS file
-    this.injectCSSFromFile();
 
     await this.loadSettings();
 
@@ -32,41 +30,12 @@ class FootLinkerPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => this.immediateUpdateFootLinker());
   }
 
-  async injectCSSFromFile() {
-    try {
-      const cssPath = `.obsidian/plugins/${this.manifest.id}/styles.css`;
-      const css = await this.app.vault.adapter.read(cssPath);
-  
-      // Remove any existing style element for styles.css
-      const existingStyle = document.getElementById("footlinker-styles-css");
-      if (existingStyle) {
-        existingStyle.remove();
-      }
-  
-      // Create a new style element for styles.css
-      const style = document.createElement("style");
-      style.id = "footlinker-styles-css";
-      style.textContent = css;
-  
-      // Append the style element to the document head
-      document.head.appendChild(style);
-    } catch (error) {
-      console.error("Error injecting CSS from file:", error);
-    }
-  }
-
   removeCSS() {
-      // Remove the dynamically injected CSS
-      const dynamicStyle = document.getElementById("footlinker-dynamic-css");
-      if (dynamicStyle) {
-          dynamicStyle.remove();
-      }
-
-      // Remove the CSS injected from styles.css
-      const fileStyle = document.getElementById("footlinker-styles-css");
-      if (fileStyle) {
-          fileStyle.remove();
-      }
+    // Remove the dynamically injected CSS
+    const dynamicStyle = document.getElementById("footlinker-dynamic-css");
+    if (dynamicStyle) {
+      dynamicStyle.remove();
+    }
   }
 
   async loadSettings() {
@@ -203,6 +172,11 @@ class FootLinkerPlugin extends Plugin {
 
   async createFootLinker(file) {
     const footLinker = createDiv({ cls: "footlinker footlinker--hidden" });
+
+    // Set CSS custom properties for ordering using the setting
+    footLinker.style.setProperty('--footlinker-z-index', String(this.settings.footerOrder));
+    footLinker.style.setProperty('--footlinker-order', String(this.settings.footerOrder));
+
     footLinker.createDiv({ cls: "footlinker--dashed-line" });
 
     this.addBacklinks(footLinker, file);
@@ -212,8 +186,6 @@ class FootLinkerPlugin extends Plugin {
     return footLinker;
   }
 
-
-
   addFootLinks(footLinker, file) {
     let grabdate = file.name.split("_");
     let grabparts = grabdate[0].split("-");
@@ -221,7 +193,7 @@ class FootLinkerPlugin extends Plugin {
     let month = grabparts[1];
     let day = grabparts[2];
     let newdate = year + month + day;
-  
+
     // Begin Journals
     if (file.path.includes("Chrono/Journals")) {
       const sections = [
@@ -230,7 +202,7 @@ class FootLinkerPlugin extends Plugin {
         { path: 'Chrono/Photos', cls: 'photo' },
         { path: 'Chrono/Private', cls: 'private' }
       ];
-  
+
       sections.forEach(section => {
         const sectionPath = `${section.path}/${year}/${year}-${month}`;
         const sectionFiles = app.vault.getFiles()
@@ -255,7 +227,7 @@ class FootLinkerPlugin extends Plugin {
         }
       });
       // End Journals
-    } else if (file.path.includes("Notes") || file.path.includes("CRM/People") || file.path.includes("CRM/Places") || file.path.includes("CRM/Organizations")) {
+    } else if (file.path.includes("Notes") || file.path.includes("Sets/People") || file.path.includes("Sets/Places") || file.path.includes("Sets/Organizations")) {
       // Begin Notes
       const sections = [
         { path: 'Chrono/Documents', cls: 'documents' },
@@ -263,10 +235,10 @@ class FootLinkerPlugin extends Plugin {
         { path: 'Chrono/Photos', cls: 'photo' },
         { path: 'Chrono/Private', cls: 'private' }
       ];
-  
+
       sections.forEach(section => {
         const activeFile = this.app.workspace.getActiveFile();
-      
+
         this.app.vault.read(activeFile).then(fileContent => {
           const cache = this.app.metadataCache.getFileCache(activeFile);
           const frontMatter = cache?.frontmatter;
@@ -321,32 +293,6 @@ class FootLinkerPlugin extends Plugin {
 
     if (!backlinksUl.childElementCount) backlinksDiv.remove();
   }
-
-  addDates(footLinker, file) {
-    const datesWrapper = footLinker.createDiv({ cls: "footlinker--dates-wrapper" });
-    const cache = this.app.metadataCache.getFileCache(file);
-    const frontmatter = cache?.frontmatter;
-
-    const modifiedDate = this.getFormattedDate(
-      frontmatter?.[this.settings.customModifiedDateProp],
-      file.stat.mtime
-    );
-    datesWrapper.createDiv({ cls: "footlinker--modified-date", text: modifiedDate });
-
-    const createdDate = this.getFormattedDate(
-      frontmatter?.[this.settings.customCreatedDateProp],
-      file.stat.ctime
-    );
-    datesWrapper.createDiv({ cls: "footlinker--created-date", text: createdDate });
-  }
-
-  getFormattedDate(customDate, fallbackDate) {
-    if (customDate && !isNaN(Date.parse(customDate))) {
-      return formatDate(new Date(customDate), this.settings.dateDisplayFormat);
-    }
-    return formatDate(new Date(fallbackDate), this.settings.dateDisplayFormat);
-  }
-
 
   setupLinkBehavior(link, linkPath, file) {
     link.addEventListener("click", (event) => {
