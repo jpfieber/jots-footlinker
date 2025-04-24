@@ -10,6 +10,8 @@ function aliasesContains(fileName, aliases) {
 class FootLinkerPlugin extends Plugin {
   async onload() {
     console.log("Loading FootLinker plugin...");
+    // Load the plugin's CSS file
+    this.injectCSSFromFile();
 
     await this.loadSettings();
 
@@ -30,11 +32,40 @@ class FootLinkerPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => this.immediateUpdateFootLinker());
   }
 
+  async injectCSSFromFile() {
+    try {
+      const cssPath = `.obsidian/plugins/${this.manifest.id}/styles.css`;
+      const css = await this.app.vault.adapter.read(cssPath);
+
+      // Remove any existing style element for styles.css
+      const existingStyle = document.getElementById("footlinker-styles-css");
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+
+      // Create a new style element for styles.css
+      const style = document.createElement("style");
+      style.id = "footlinker-styles-css";
+      style.textContent = css;
+
+      // Append the style element to the document head
+      document.head.appendChild(style);
+    } catch (error) {
+      console.error("Error injecting CSS from file:", error);
+    }
+  }
+
   removeCSS() {
     // Remove the dynamically injected CSS
     const dynamicStyle = document.getElementById("footlinker-dynamic-css");
     if (dynamicStyle) {
       dynamicStyle.remove();
+    }
+
+    // Remove the CSS injected from styles.css
+    const fileStyle = document.getElementById("footlinker-styles-css");
+    if (fileStyle) {
+      fileStyle.remove();
     }
   }
 
@@ -227,8 +258,9 @@ class FootLinkerPlugin extends Plugin {
         }
       });
       // End Journals
-    } else if (file.path.includes("Notes") || file.path.includes("Sets/People") || file.path.includes("Sets/Places") || file.path.includes("Sets/Organizations")) {
-      // Begin Notes
+    //} else if (file.path.includes("Notes") || file.path.includes("Sets/People") || file.path.includes("Sets/Places") || file.path.includes("Sets/Organizations")  || file.path.includes("Sets/Things")) {
+    } else { 
+    // Begin Notes
       const sections = [
         { path: 'Chrono/Documents', cls: 'documents' },
         { path: 'Chrono/Email', cls: 'email' },
@@ -267,7 +299,6 @@ class FootLinkerPlugin extends Plugin {
       });      // End Notes
     }
   }
-
 
   addBacklinks(footLinker, file) {
     const backlinksData = this.app.metadataCache.getBacklinksForFile(file);

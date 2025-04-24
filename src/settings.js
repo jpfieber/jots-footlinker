@@ -1,4 +1,4 @@
-const { PluginSettingTab, Setting } = require('obsidian');
+const { PluginSettingTab } = require('obsidian');
 
 const DEFAULT_SETTINGS = {
   customCreatedDateProp: "",
