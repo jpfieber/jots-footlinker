@@ -40,7 +40,7 @@ export default class FootLinkerPlugin extends Plugin {
 
   async injectCSSFromFile() {
     try {
-      const cssPath = `.obsidian/plugins/${this.manifest.id}/styles.css`;
+      const cssPath = `dist/styles.css`; // Changed from .obsidian/plugins/${this.manifest.id}/styles.css
       const css = await this.app.vault.adapter.read(cssPath);
 
       // Remove any existing style element for styles.css
