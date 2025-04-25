@@ -332,3 +332,165 @@
     height: 250px !important;
     resize: vertical;
 }
+
+/* Path Pattern Warning Styles */
+.footlinker-path-setting {
+    margin-bottom: 24px;
+    padding: 12px;
+    border-radius: 6px;
+    background-color: var(--background-secondary);
+}
+
+.path-warning {
+    margin-top: 8px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    background-color: var(--background-modifier-error);
+    color: var(--text-error);
+}
+
+.path-suggestion {
+    margin-top: 4px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: var(--background-modifier-success-hover);
+    color: var(--text-success);
+    cursor: pointer;
+}
+
+/* Folder Suggestion Styles */
+.suggestion-container {
+    position: absolute;
+    z-index: 100;
+    max-height: 300px;
+    overflow-y: auto;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    box-shadow: 0 2px 8px var(--background-modifier-box-shadow);
+}
+
+.suggestion-item {
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.suggestion-item:hover {
+    background-color: var(--background-modifier-hover);
+}
+
+.suggestion-item.is-selected {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+/* Settings Styles */
+.path-setting-container {
+    padding: 16px;
+    margin: 16px 0;
+    border-radius: 8px;
+    background-color: var(--background-primary-alt);
+    border: 2px solid var(--background-modifier-border);
+    box-shadow: var(--background-modifier-box-shadow);
+}
+
+.path-setting-container .setting-item {
+    border: none;
+    background: transparent;
+    padding: 12px 0;
+    margin-bottom: 8px;
+}
+
+/* Selection Tags */
+.selected-items {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+    padding-left: 24px;
+}
+
+.selection-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.selection-tag .remove-button {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0 2px;
+}
+
+.selection-tag .remove-button:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+}
+
+/* Tab Styles */
+.jots-settings-tabs {
+    padding-top: 12px;
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 12px;
+}
+
+.jots-settings-tab {
+    margin-bottom: -1px;
+    padding: 6px 12px;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-block;
+    border: 1px solid transparent;
+    border-radius: 4px 4px 0 0;
+}
+
+.jots-settings-tab.is-active {
+    border: 1px solid var(--background-modifier-border);
+    border-bottom-color: var(--background-primary);
+    color: var(--text-accent);
+}
+
+.jots-settings-content:not(.is-active) {
+    display: none;
+}
+
+/* Additional FootLinker-specific styles */
+.path-setting-container {
+    margin-bottom: 24px;
+    padding: 12px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+}
+
+.selected-items {
+    margin-top: 8px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.selection-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+    border-radius: 4px;
+    font-size: 12px;
+}
+
+.selection-tag .remove-button {
+    cursor: pointer;
+    font-weight: bold;
+    padding: 0 2px;
+}
+
+.selection-tag .remove-button:hover {
+    opacity: 0.8;
+}

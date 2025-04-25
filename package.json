@@ -3,10 +3,10 @@
   "version": "1.0.0",
   "description": "A plugin for Obsidian that adds footers to notes with useful information.",
   "main": "src/main.js",
-    "scripts": {
-      "build": "esbuild src/main.js --bundle --outfile=dist/main.js --external:obsidian --format=cjs",
-      "watch": "esbuild src/main.js --bundle --outfile=dist/main.js --watch --external:obsidian --format=cjs"
-    },
+  "scripts": {
+    "build": "node esbuild.config.mjs",
+    "watch": "node esbuild.config.mjs --watch"
+  },
   "keywords": [
     "obsidian",
     "plugin",
@@ -15,9 +15,16 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
-    "obsidian": "^0.12.0"
+    "@popperjs/core": "^2.11.8",
+    "obsidian": "^1.8.7"
   },
   "devDependencies": {
-    "esbuild": "^0.12.0"
+    "@types/node": "^16.11.6",
+    "builtin-modules": "3.3.0",
+    "esbuild": "0.17.3",
+    "fs": "^0.0.1-security",
+    "obsidian": "latest",
+    "tslib": "2.4.0",
+    "typescript": "4.7.4"
   }
 }

@@ -1,13 +1,14 @@
-const { Plugin, PluginSettingTab, debounce, MarkdownView } = require('obsidian');
-const { DEFAULT_SETTINGS, FootLinkerSettingTab } = require('./settings');
-const { formatDate } = require('./utils/formatDate');
+import { Plugin, PluginSettingTab, debounce, MarkdownView } from 'obsidian';
+import { DEFAULT_SETTINGS, FootLinkerSettingTab } from './settings';
+import { formatDate } from './utils/formatDate';
+import { addBacklinks } from './sections/backlinks';
+import { addFootLinks } from './sections/relatedfiles';
 
 function aliasesContains(fileName, aliases) {
   return aliases.some(alias => fileName.includes(alias));
 }
 
-
-class FootLinkerPlugin extends Plugin {
+export default class FootLinkerPlugin extends Plugin {
   async onload() {
     console.log("Loading FootLinker plugin...");
     // Load the plugin's CSS file
@@ -71,12 +72,26 @@ class FootLinkerPlugin extends Plugin {
 
   async loadSettings() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    if (!Array.isArray(this.settings.excludedFolders)) {
-      this.settings.excludedFolders = [];
+    // Ensure relatedFiles array is initialized with 5 entries
+    if (!this.settings.relatedFiles || this.settings.relatedFiles.length !== 5) {
+      this.settings.relatedFiles = Array(5).fill().map((_, i) => ({
+        id: (i + 1).toString(),
+        label: '',
+        path: ''
+      }));
     }
+    // Ensure pathSettings is initialized as an array
+    if (!Array.isArray(this.settings.pathSettings)) {
+      this.settings.pathSettings = [];
+    }
+    await this.saveSettings();
   }
 
   async saveSettings() {
+    // Ensure sectionSettings exists before saving
+    if (!this.settings.sectionSettings) {
+      this.settings.sectionSettings = {};
+    }
     await this.saveData(this.settings);
   }
 
@@ -210,119 +225,67 @@ class FootLinkerPlugin extends Plugin {
 
     footLinker.createDiv({ cls: "footlinker--dashed-line" });
 
-    this.addBacklinks(footLinker, file);
-    this.addFootLinks(footLinker, file);
+    const pathSetting = this.findMatchingPathSetting(file.path);
+
+    if (pathSetting?.showBacklinks) {
+      addBacklinks(footLinker, file, this.app, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
+    }
+
+    if (pathSetting?.enabledCategories?.length) {
+      const enabledCategories = pathSetting.enabledCategories
+        .map(id => this.settings.relatedFiles.find(rf => rf.id === id))
+        .filter(category => category && category.label && category.path);
+
+      addFootLinks(footLinker, file, this.app, enabledCategories, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
+    }
 
     setTimeout(() => footLinker.removeClass("footlinker--hidden"), 10);
     return footLinker;
   }
 
-  addFootLinks(footLinker, file) {
-    let grabdate = file.name.split("_");
-    let grabparts = grabdate[0].split("-");
-    let year = grabparts[0];
-    let month = grabparts[1];
-    let day = grabparts[2];
-    let newdate = year + month + day;
+  findMostSpecificPathPattern(filePath) {
+    const normalizedFilePath = filePath.replace(/\/+/g, '/').trim();
+    const patterns = Object.keys(this.settings.pathSettings || {});
 
-    // Begin Journals
-    if (file.path.includes("Chrono/Journals")) {
-      const sections = [
-        { path: 'Chrono/Documents', cls: 'documents' },
-        { path: 'Chrono/Email', cls: 'email' },
-        { path: 'Chrono/Photos', cls: 'photo' },
-        { path: 'Chrono/Private', cls: 'private' }
-      ];
+    // Sort patterns by specificity (length and number of path segments)
+    const sortedPatterns = patterns.sort((a, b) => {
+      const aNorm = a.replace(/\/+/g, '/').trim();
+      const bNorm = b.replace(/\/+/g, '/').trim();
+      // Compare number of segments first
+      const aSegments = aNorm.split('/').length;
+      const bSegments = bNorm.split('/').length;
+      if (aSegments !== bSegments) {
+        return bSegments - aSegments; // More segments = more specific
+      }
+      // If same number of segments, longer path = more specific
+      return bNorm.length - aNorm.length;
+    });
 
-      sections.forEach(section => {
-        const sectionPath = `${section.path}/${year}/${year}-${month}`;
-        const sectionFiles = app.vault.getFiles()
-          .filter(file => file.path.includes(sectionPath) && file.name.includes(newdate))
-          .sort((a, b) => a.name.localeCompare(b.name))
-          .map(file => file.path);
-        const sectionDiv = footLinker.createDiv({ cls: `footlinker--${section.cls}` }); // Fixed here
-        const sectionUl = sectionDiv.createEl("ul");
-        for (const linkPath of sectionFiles) {
-          const li = sectionUl.createEl("li");
-          const link = li.createEl("a", {
-            href: linkPath,
-            text: linkPath.split("/").pop(),
-            cls: this.isEditMode() ? "cm-hmd-internal-link cm-underline" : "internal-link"
-          });
-          link.dataset.href = linkPath;
-          link.dataset.sourcePath = file.path;
-          this.setupLinkBehavior(link, linkPath, file);
-        }
-        if (sectionUl.childElementCount === 0) {
-          sectionDiv.remove();
-        }
-      });
-      // End Journals
-    //} else if (file.path.includes("Notes") || file.path.includes("Sets/People") || file.path.includes("Sets/Places") || file.path.includes("Sets/Organizations")  || file.path.includes("Sets/Things")) {
-    } else { 
-    // Begin Notes
-      const sections = [
-        { path: 'Chrono/Documents', cls: 'documents' },
-        { path: 'Chrono/Email', cls: 'email' },
-        { path: 'Chrono/Photos', cls: 'photo' },
-        { path: 'Chrono/Private', cls: 'private' }
-      ];
-
-      sections.forEach(section => {
-        const activeFile = this.app.workspace.getActiveFile();
-
-        this.app.vault.read(activeFile).then(fileContent => {
-          const cache = this.app.metadataCache.getFileCache(activeFile);
-          const frontMatter = cache?.frontmatter;
-          const aliases = Array.isArray(frontMatter?.aliases) ? frontMatter.aliases.map(alias => alias.replace(/^- /, '').trim()) : [];
-          const sectionFiles = this.app.vault.getFiles()
-            .filter(file => file.path.includes(section.path) && (file.name.includes(activeFile.basename) || aliasesContains(file.name, aliases)))
-            .sort((a, b) => b.name.localeCompare(a.name))
-            .map(file => file.path);
-          const sectionDiv = footLinker.createDiv({ cls: `footlinker--${section.cls}` });
-          const sectionUl = sectionDiv.createEl("ul");
-          for (const linkPath of sectionFiles) {
-            const li = sectionUl.createEl("li");
-            const link = li.createEl("a", {
-              href: linkPath,
-              text: linkPath.split("/").pop(),
-              cls: this.isEditMode() ? "cm-hmd-internal-link cm-underline" : "internal-link"
-            });
-            link.dataset.href = linkPath;
-            link.dataset.sourcePath = activeFile.path;
-            this.setupLinkBehavior(link, linkPath, activeFile);
-          }
-          if (sectionUl.childElementCount === 0) {
-            sectionDiv.remove();
-          }
-        });
-      });      // End Notes
-    }
+    // Find the first (most specific) matching pattern
+    return sortedPatterns.find(pattern => {
+      const normalizedPattern = pattern.replace(/\/+/g, '/').trim();
+      return normalizedFilePath.includes(normalizedPattern);
+    });
   }
 
-  addBacklinks(footLinker, file) {
-    const backlinksData = this.app.metadataCache.getBacklinksForFile(file);
-    if (!backlinksData?.data?.size) return;
+  getSectionPath(sectionId, pathPattern) {
+    const pathSettings = this.settings.pathSettings[pathPattern];
+    // Check if there's a custom path for this section in the path settings
+    if (pathSettings?.sectionPaths?.[sectionId]) {
+      return pathSettings.sectionPaths[sectionId];
+    }
+    // Otherwise use the default path from availableSections
+    const section = this.settings.availableSections.find(s => s.id === sectionId);
+    return section?.defaultPath;
+  }
 
-    const backlinksDiv = footLinker.createDiv({ cls: "footlinker--backlinks" });
-    const backlinksUl = backlinksDiv.createEl("ul");
+  findMatchingPathSetting(filePath) {
+    if (!this.settings.pathSettings) return null;
 
-    Array.from(backlinksData.data.keys())
-      .filter((linkPath) => linkPath.endsWith(".md"))
-      .sort((a, b) => a.localeCompare(b))
-      .forEach((linkPath) => {
-        const li = backlinksUl.createEl("li");
-        const link = li.createEl("a", {
-          href: linkPath,
-          text: linkPath.split("/").pop().slice(0, -3),
-          cls: this.isEditMode() ? "cm-hmd-internal-link cm-underline" : "internal-link",
-        });
-        link.dataset.href = linkPath;
-        link.dataset.sourcePath = file.path;
-        this.setupLinkBehavior(link, linkPath, file);
-      });
-
-    if (!backlinksUl.childElementCount) backlinksDiv.remove();
+    // Find the most specific (longest) matching path
+    return this.settings.pathSettings
+      .filter(ps => filePath.startsWith(ps.path))
+      .sort((a, b) => b.path.length - a.path.length)[0];
   }
 
   setupLinkBehavior(link, linkPath, file) {
@@ -330,6 +293,73 @@ class FootLinkerPlugin extends Plugin {
       event.preventDefault();
       this.app.workspace.openLinkText(linkPath, file.path);
     });
+  }
+
+  async generateFooter(file) {
+    const footer = document.createElement('div');
+    footer.classList.add('foot-links');
+
+    // Get active sections for this file path
+    const pathSettings = this.getPathSettings(file.path);
+    if (!pathSettings || !pathSettings.enabled) {
+      return footer;
+    }
+
+    const activeSections = pathSettings.sections;
+
+    // Generate related files section
+    const relatedLinks = await this.getRelatedLinks(file, activeSections);
+    if (relatedLinks && relatedLinks.childNodes.length > 0) {
+      footer.appendChild(relatedLinks);
+    }
+
+    // ...existing code for dates and backlinks...
+
+    return footer;
+  }
+
+  async getRelatedLinks(file, activeSections) {
+    const container = document.createElement('div');
+    container.classList.add('related-links');
+
+    const allFiles = this.app.vault.getFiles();
+    let hasContent = false;
+
+    // Process each active section
+    for (const sectionId of activeSections) {
+      const section = this.settings.relatedFiles.find(s => s.id === sectionId);
+      if (!section || !section.label || !section.path) continue;
+
+      const sectionFiles = allFiles.filter(f =>
+        f.path.startsWith(section.path) &&
+        f.path !== file.path &&
+        !this.settings.excludedFolders.some(folder => f.path.startsWith(folder))
+      );
+
+      if (sectionFiles.length > 0) {
+        hasContent = true;
+        const sectionDiv = document.createElement('div');
+        sectionDiv.classList.add('related-section');
+
+        const header = document.createElement('div');
+        header.classList.add('related-header');
+        header.textContent = section.label;
+        sectionDiv.appendChild(header);
+
+        const linkList = document.createElement('div');
+        linkList.classList.add('related-list');
+
+        sectionFiles.forEach(relatedFile => {
+          const link = this.createFileLink(relatedFile);
+          linkList.appendChild(link);
+        });
+
+        sectionDiv.appendChild(linkList);
+        container.appendChild(sectionDiv);
+      }
+    }
+
+    return hasContent ? container : null;
   }
 
   onunload() {
@@ -340,5 +370,3 @@ class FootLinkerPlugin extends Plugin {
 
   }
 }
-
-export default FootLinkerPlugin;
