@@ -39,7 +39,7 @@ export function addJots(
             if (tasks.length > 0) {
                 const sectionDiv = footLinker.createDiv({ cls: 'footlinker--jots' });
                 sectionDiv.createEl('h2', { text: label });
-                
+
                 const tasksList = sectionDiv.createEl('ul');
                 tasks.forEach(task => {
                     tasksList.createEl('li', { text: task });

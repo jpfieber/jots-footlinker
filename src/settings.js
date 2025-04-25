@@ -58,9 +58,9 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
     // Add click handlers for tabs
     const setActiveTab = async (tabId, activeBtn, activeContent) => {
-      [relatedFilesBtn, footerNotesBtn, jotsBtn].forEach(btn => 
+      [relatedFilesBtn, footerNotesBtn, jotsBtn].forEach(btn =>
         btn.removeClass('is-active'));
-      [relatedFilesContent, footerNotesContent, jotsContent].forEach(content => 
+      [relatedFilesContent, footerNotesContent, jotsContent].forEach(content =>
         content.removeClass('is-active'));
       activeBtn.addClass('is-active');
       activeContent.addClass('is-active');
@@ -68,11 +68,11 @@ export class FootLinkerSettingTab extends PluginSettingTab {
       await this.plugin.saveSettings();
     };
 
-    relatedFilesBtn.addEventListener('click', () => 
+    relatedFilesBtn.addEventListener('click', () =>
       setActiveTab('related-files', relatedFilesBtn, relatedFilesContent));
-    footerNotesBtn.addEventListener('click', () => 
+    footerNotesBtn.addEventListener('click', () =>
       setActiveTab('footer-notes', footerNotesBtn, footerNotesContent));
-    jotsBtn.addEventListener('click', () => 
+    jotsBtn.addEventListener('click', () =>
       setActiveTab('jots', jotsBtn, jotsContent));
 
     // Set initial active tab based on stored setting
