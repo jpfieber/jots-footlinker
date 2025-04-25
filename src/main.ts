@@ -1,5 +1,5 @@
 import { Plugin, PluginSettingTab, debounce, MarkdownView } from 'obsidian';
-import { DEFAULT_SETTINGS, FootLinkerSettingTab } from './settings.ts';
+import { DEFAULT_SETTINGS, FootLinkerSettingTab } from './settings';
 import { formatDate } from './utils/formatDate';
 import { addBacklinks } from './sections/backlinks';
 import { addFootLinks } from './sections/relatedfiles';
@@ -11,13 +11,16 @@ function aliasesContains(fileName, aliases) {
 }
 
 export default class FootLinkerPlugin extends Plugin {
+  settings: any;
+  private immediateUpdateFootLinker: () => Promise<void>;
+  private debouncedUpdateFootLinker: () => void;
+  private contentObserver: MutationObserver | null = null;
+  private containerObserver: MutationObserver | null = null;
+
   async onload() {
     console.log("Loading FootLinker plugin...");
 
-    // Load settings first before anything else
-    await this.loadSettings();
-
-    // Initialize update functions
+    // Initialize update functions FIRST
     const updateFootLinkerCallback = async () => {
       try {
         await this.updateFootLinker();
@@ -26,11 +29,12 @@ export default class FootLinkerPlugin extends Plugin {
       }
     };
 
+    // Initialize these before loading settings
     this.immediateUpdateFootLinker = updateFootLinkerCallback;
     this.debouncedUpdateFootLinker = debounce(updateFootLinkerCallback, 1000, true);
 
-    // Load CSS file
-    await this.injectCSSFromFile();
+    // Then load settings
+    await this.loadSettings();
 
     // Add settings tab
     this.addSettingTab(new FootLinkerSettingTab(this.app, this));

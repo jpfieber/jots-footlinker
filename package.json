@@ -2,7 +2,7 @@
   "name": "jots-footlinker",
   "version": "1.0.0",
   "description": "A plugin for Obsidian that adds footers to notes with useful information.",
-  "main": "src/main.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "node esbuild.config.mjs",
     "watch": "node esbuild.config.mjs --watch"

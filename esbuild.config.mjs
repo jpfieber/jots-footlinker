@@ -25,7 +25,7 @@ const buildOptions = {
     banner: {
         js: banner,
     },
-    entryPoints: ["src/main.js"],
+    entryPoints: ["src/main.ts"],
     bundle: true,
     external: [
         "obsidian",
