@@ -3,6 +3,7 @@ import { DEFAULT_SETTINGS, FootLinkerSettingTab } from './settings';
 import { formatDate } from './utils/formatDate';
 import { addBacklinks } from './sections/backlinks';
 import { addFootLinks } from './sections/relatedfiles';
+import { addJots } from './sections/jots';
 
 function aliasesContains(fileName, aliases) {
   return aliases.some(alias => fileName.includes(alias));
@@ -228,15 +229,20 @@ export default class FootLinkerPlugin extends Plugin {
     const pathSetting = this.findMatchingPathSetting(file.path);
 
     if (pathSetting?.showBacklinks) {
-      addBacklinks(footLinker, file, this.app, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
+        addBacklinks(footLinker, file, this.app, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
+    }
+
+    // Add jots section if there are any configured jot items
+    if (this.settings.jotItems?.length > 0) {
+        addJots(footLinker, file, this.app, this.settings.jotItems, this.isEditMode.bind(this));
     }
 
     if (pathSetting?.enabledCategories?.length) {
-      const enabledCategories = pathSetting.enabledCategories
-        .map(id => this.settings.relatedFiles.find(rf => rf.id === id))
-        .filter(category => category && category.label && category.path);
+        const enabledCategories = pathSetting.enabledCategories
+            .map(id => this.settings.relatedFiles.find(rf => rf.id === id))
+            .filter(category => category && category.label && category.path);
 
-      addFootLinks(footLinker, file, this.app, enabledCategories, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
+        addFootLinks(footLinker, file, this.app, enabledCategories, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
     }
 
     setTimeout(() => footLinker.removeClass("footlinker--hidden"), 10);

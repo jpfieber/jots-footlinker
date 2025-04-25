@@ -7,7 +7,9 @@ export const DEFAULT_SETTINGS = {
     label: '',
     path: ''
   })),
-  pathSettings: []  // Will store array of {path: string, enabledCategories: string[], showBacklinks: boolean}
+  pathSettings: [],  // Will store array of {path: string, enabledCategories: string[], showBacklinks: boolean}
+  jotItems: [],  // Will store array of {id: string, label: string, taskChar: string}
+  activeTab: 'related-files'  // Store active tab state
 };
 
 export class FootLinkerSettingTab extends PluginSettingTab {
@@ -27,7 +29,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
     // Create tab buttons
     const relatedFilesBtn = tabsContainer.createEl('div', {
-      cls: 'jots-settings-tab is-active',
+      cls: 'jots-settings-tab',
       text: 'Related Files'
     });
 
@@ -36,33 +38,59 @@ export class FootLinkerSettingTab extends PluginSettingTab {
       text: 'Notes with Footers'
     });
 
+    const jotsBtn = tabsContainer.createEl('div', {
+      cls: 'jots-settings-tab',
+      text: 'Jots'
+    });
+
     // Create content containers
     const relatedFilesContent = containerEl.createEl('div', {
-      cls: 'jots-settings-content is-active'
+      cls: 'jots-settings-content'
     });
 
     const footerNotesContent = containerEl.createEl('div', {
       cls: 'jots-settings-content'
     });
 
-    // Add click handlers for tabs
-    relatedFilesBtn.addEventListener('click', () => {
-      relatedFilesBtn.addClass('is-active');
-      footerNotesBtn.removeClass('is-active');
-      relatedFilesContent.addClass('is-active');
-      footerNotesContent.removeClass('is-active');
+    const jotsContent = containerEl.createEl('div', {
+      cls: 'jots-settings-content'
     });
 
-    footerNotesBtn.addEventListener('click', () => {
-      footerNotesBtn.addClass('is-active');
-      relatedFilesBtn.removeClass('is-active');
-      footerNotesContent.addClass('is-active');
-      relatedFilesContent.removeClass('is-active');
-    });
+    // Add click handlers for tabs
+    const setActiveTab = async (tabId, activeBtn, activeContent) => {
+      [relatedFilesBtn, footerNotesBtn, jotsBtn].forEach(btn => 
+        btn.removeClass('is-active'));
+      [relatedFilesContent, footerNotesContent, jotsContent].forEach(content => 
+        content.removeClass('is-active'));
+      activeBtn.addClass('is-active');
+      activeContent.addClass('is-active');
+      this.plugin.settings.activeTab = tabId;
+      await this.plugin.saveSettings();
+    };
+
+    relatedFilesBtn.addEventListener('click', () => 
+      setActiveTab('related-files', relatedFilesBtn, relatedFilesContent));
+    footerNotesBtn.addEventListener('click', () => 
+      setActiveTab('footer-notes', footerNotesBtn, footerNotesContent));
+    jotsBtn.addEventListener('click', () => 
+      setActiveTab('jots', jotsBtn, jotsContent));
+
+    // Set initial active tab based on stored setting
+    switch (this.plugin.settings.activeTab) {
+      case 'footer-notes':
+        setActiveTab('footer-notes', footerNotesBtn, footerNotesContent);
+        break;
+      case 'jots':
+        setActiveTab('jots', jotsBtn, jotsContent);
+        break;
+      default:
+        setActiveTab('related-files', relatedFilesBtn, relatedFilesContent);
+    }
 
     // Add content to tabs
     this.displayRelatedFilesSettings(relatedFilesContent);
     this.displayFooterNotesSettings(footerNotesContent);
+    this.displayJotsSettings(jotsContent);
   }
 
   displayRelatedFilesSettings(containerEl) {
@@ -185,6 +213,62 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
         // Display current selections
         this.updateSelectionDisplay(pathSettingContainer, pathSetting, availableCategories);
+      });
+    }
+  }
+
+  displayJotsSettings(containerEl) {
+    containerEl.createEl('h3', { text: 'Jots Settings' });
+    containerEl.createEl('p', { text: 'Configure task groupings for the footer. Each group needs a label and a character that marks the tasks to be included.' });
+
+    // Add New Jot Group Button
+    new Setting(containerEl)
+      .setName('Add Jot Group')
+      .setDesc('Add a new task grouping')
+      .addButton(button => button
+        .setButtonText('Add Group')
+        .onClick(async () => {
+          if (!this.plugin.settings.jotItems) {
+            this.plugin.settings.jotItems = [];
+          }
+          this.plugin.settings.jotItems.push({
+            id: String(Date.now()),
+            label: '',
+            taskChar: ''
+          });
+          await this.plugin.saveSettings();
+          this.display(); // The active tab will be preserved now
+        }));
+
+    // Existing Jot Groups
+    if (this.plugin.settings.jotItems?.length > 0) {
+      this.plugin.settings.jotItems.forEach((jot, index) => {
+        const jotContainer = containerEl.createDiv('path-setting-container');
+
+        new Setting(jotContainer)
+          .setName(`Group ${index + 1}`)
+          .addText(text => text
+            .setPlaceholder('Enter group label')
+            .setValue(jot.label)
+            .onChange(async (value) => {
+              this.plugin.settings.jotItems[index].label = value;
+              await this.plugin.saveSettings();
+            }))
+          .addText(text => text
+            .setPlaceholder('Task char')
+            .setValue(jot.taskChar)
+            .onChange(async (value) => {
+              this.plugin.settings.jotItems[index].taskChar = value;
+              await this.plugin.saveSettings();
+            }))
+          .addExtraButton(button => button
+            .setIcon('cross')
+            .setTooltip('Delete')
+            .onClick(async () => {
+              this.plugin.settings.jotItems.splice(index, 1);
+              await this.plugin.saveSettings();
+              this.display(); // The active tab will be preserved now
+            }));
       });
     }
   }
