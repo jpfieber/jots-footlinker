@@ -9,10 +9,6 @@ export const DEFAULT_SETTINGS = {
   })),
   pathSettings: [],  // Will store array of {path: string, enabledCategories: string[], showBacklinks: boolean}
   jotItems: [],  // Will store array of {id: string, label: string, taskChar: string}
-  tasksSettings: {
-    headerName: 'Tasks',
-    query: ''
-  },
   activeTab: 'related-files'  // Store active tab state
 };
 
@@ -53,11 +49,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
       text: 'Jots'
     });
 
-    const tasksBtn = tabsContainer.createEl('div', {
-      cls: 'jots-settings-tab',
-      text: 'Tasks'
-    });
-
     // Create content containers
     const relatedFilesContent = containerEl.createEl('div', {
       cls: 'jots-settings-content'
@@ -71,15 +62,11 @@ export class FootLinkerSettingTab extends PluginSettingTab {
       cls: 'jots-settings-content'
     });
 
-    const tasksContent = containerEl.createEl('div', {
-      cls: 'jots-settings-content'
-    });
-
     // Add click handlers for tabs
     const setActiveTab = async (tabId, activeBtn, activeContent) => {
-      [relatedFilesBtn, footerNotesBtn, jotsBtn, tasksBtn].forEach(btn =>
+      [relatedFilesBtn, footerNotesBtn, jotsBtn].forEach(btn =>
         btn.removeClass('is-active'));
-      [relatedFilesContent, footerNotesContent, jotsContent, tasksContent].forEach(content =>
+      [relatedFilesContent, footerNotesContent, jotsContent].forEach(content =>
         content.removeClass('is-active'));
       activeBtn.addClass('is-active');
       activeContent.addClass('is-active');
@@ -93,8 +80,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
       setActiveTab('footer-notes', footerNotesBtn, footerNotesContent));
     jotsBtn.addEventListener('click', () =>
       setActiveTab('jots', jotsBtn, jotsContent));
-    tasksBtn.addEventListener('click', () =>
-      setActiveTab('tasks', tasksBtn, tasksContent));
 
     // Set initial active tab based on stored setting
     switch (this.plugin.settings.activeTab) {
@@ -104,9 +89,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
       case 'jots':
         setActiveTab('jots', jotsBtn, jotsContent);
         break;
-      case 'tasks':
-        setActiveTab('tasks', tasksBtn, tasksContent);
-        break;  // Missing break statement
       default:
         setActiveTab('related-files', relatedFilesBtn, relatedFilesContent);
     }
@@ -115,7 +97,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
     this.displayRelatedFilesSettings(relatedFilesContent);
     this.displayFooterNotesSettings(footerNotesContent);
     this.displayJotsSettings(jotsContent);
-    this.displayTasksSettings(tasksContent);
   }
 
   displayRelatedFilesSettings(containerEl) {
@@ -296,51 +277,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
             }));
       });
     }
-  }
-
-  displayTasksSettings(containerEl) {
-    containerEl.createEl('h3', { text: 'Tasks Settings' });
-    containerEl.createEl('p', { text: 'Configure the Tasks section of the footer. Works with either Dataview or Tasks plugin - at least one must be installed and enabled for tasks to appear.' });
-
-    // Add settings
-    new Setting(containerEl)
-      .setName('Section Header')
-      .setDesc('The name of the tasks section in the footer')
-      .addText(text => text
-        .setPlaceholder('Tasks')
-        .setValue(this.plugin.settings.tasksSettings.headerName)
-        .onChange(async (value) => {
-          this.plugin.settings.tasksSettings.headerName = value;
-          await this.saveAndRefresh();
-        }));
-
-    new Setting(containerEl)
-      .setName('Tasks Query')
-      .setDesc('Enter a query in either Dataview or Tasks format. The plugin will automatically handle the correct syntax.')
-      .addTextArea(text => text
-        .setPlaceholder('Enter your query here...')
-        .setValue(this.plugin.settings.tasksSettings.query)
-        .onChange(async (value) => {
-          this.plugin.settings.tasksSettings.query = value;
-          await this.saveAndRefresh();
-        }));
-
-    // Add example queries info
-    const examplesDiv = containerEl.createDiv('path-setting-container');
-    examplesDiv.createEl('h4', { text: 'Example Queries' });
-
-    const dataviewExample = examplesDiv.createEl('p');
-    dataviewExample.innerHTML = '<strong>Dataview examples:</strong><br>' +
-      '• due before tomorrow (converted to "due < date(tomorrow)")<br>' +
-      '• due after today and !completed<br>' +
-      '• due = date(today)<br>' +
-      '• contains(tags, "#project")';
-
-    const tasksExample = examplesDiv.createEl('p');
-    tasksExample.innerHTML = '<strong>Tasks examples:</strong><br>' +
-      '• not done<br>' +
-      '• due before tomorrow<br>' +
-      '• path includes Daily';
   }
 
   updateSelectionDisplay(container, pathSetting, availableCategories) {

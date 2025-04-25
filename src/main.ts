@@ -4,7 +4,6 @@ import { formatDate } from './utils/formatDate';
 import { addBacklinks } from './sections/backlinks';
 import { addFootLinks } from './sections/relatedfiles';
 import { addJots } from './sections/jots';
-import { addTasks, clearTaskQueries } from './sections/tasks';
 
 function aliasesContains(fileName, aliases) {
   return aliases.some(alias => fileName.includes(alias));
@@ -204,11 +203,6 @@ export default class FootLinkerPlugin extends Plugin {
 
     if (pathSetting?.showBacklinks) {
       addBacklinks(footLinker, file, this.app, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
-    }
-
-    // Add tasks section if query is configured
-    if (this.settings.tasksSettings?.query) {
-      await addTasks(footLinker, file, this.app, this.settings.tasksSettings, this.isEditMode.bind(this));
     }
 
     // Add jots section if there are any configured jot items
@@ -456,9 +450,6 @@ export default class FootLinkerPlugin extends Plugin {
     console.log("Unloading FootLinker plugin...");
     // First disconnect all observers
     this.disconnectObservers();
-
-    // Clear any pending task queries
-    clearTaskQueries();
 
     // Then remove all footers and wait for them to be cleaned up
     await Promise.all(
