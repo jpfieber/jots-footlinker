@@ -24,7 +24,7 @@ export async function addTasks(
     // Check if Dataview or Tasks plugin is available
     const dataviewAPI = (app as any).plugins.plugins.dataview?.api;
     const tasksAPI = (app as any).plugins.plugins.tasks?.cache;
-    
+
     if (!dataviewAPI && !tasksAPI) {
         console.log("Neither Dataview nor Tasks plugin is available");
         return;
@@ -36,7 +36,7 @@ export async function addTasks(
 
     try {
         let tasks: any[] = [];
-        
+
         if (dataviewAPI) {
             tasks = await executeDataviewQuery(dataviewAPI, settings.query, file);
         } else if (tasksAPI) {
@@ -97,7 +97,7 @@ async function executeTasksQuery(api: any, query: string, file: TFile): Promise<
 function convertToDataviewQuery(naturalQuery: string): string {
     // Convert natural language to Dataview Query Language
     let dql = 'TASK';
-    
+
     if (naturalQuery.includes('due before tomorrow')) {
         dql += ' WHERE due < date(tomorrow)';
     }

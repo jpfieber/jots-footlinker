@@ -1,4 +1,4 @@
-export const formatDate = (date, format) => {
+export const formatDate = (date: string | Date, format: string): string => {
   const d = new Date(date);
   const year = d.getFullYear();
   const month = d.getMonth();
@@ -8,8 +8,13 @@ export const formatDate = (date, format) => {
   const monthsShort = months.map(m => m.slice(0, 3));
   const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const weekdaysShort = weekdays.map(w => w.slice(0, 3));
-  const pad = num => num.toString().padStart(2, "0");
-  const tokens = {
+  const pad = (num: number): string => num.toString().padStart(2, "0");
+
+  type TokenMap = {
+    [key: string]: string;
+  };
+
+  const tokens: TokenMap = {
     "dddd": weekdays[weekday],
     "ddd": weekdaysShort[weekday],
     "dd": pad(day),
@@ -21,9 +26,10 @@ export const formatDate = (date, format) => {
     "yyyy": year.toString(),
     "yy": year.toString().slice(-2)
   };
+
   const sortedTokens = Object.keys(tokens).sort((a, b) => b.length - a.length);
   let result = format.toLowerCase();
-  const replacements = new Map();
+  const replacements = new Map<string, string>();
   sortedTokens.forEach((token, index) => {
     const placeholder = `__${index}__`;
     replacements.set(placeholder, tokens[token]);
