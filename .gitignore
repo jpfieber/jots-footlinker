@@ -1,1 +1,3 @@
-dist
+dist/
+# Keep styles.css in root
+!styles.css

@@ -25,9 +25,6 @@ export default class FootLinkerPlugin extends Plugin {
     this.immediateUpdateFootLinker = updateFootLinkerCallback;
     this.debouncedUpdateFootLinker = debounce(updateFootLinkerCallback, 1000, true); // Default delay of 1000ms
 
-    // Load CSS file
-    this.injectCSSFromFile();
-
     // Load settings after update functions are initialized
     await this.loadSettings();
 
@@ -38,41 +35,21 @@ export default class FootLinkerPlugin extends Plugin {
     this.app.workspace.onLayoutReady(() => this.immediateUpdateFootLinker());
   }
 
-  async injectCSSFromFile() {
-    try {
-      const cssPath = `dist/styles.css`; // Changed from .obsidian/plugins/${this.manifest.id}/styles.css
-      const css = await this.app.vault.adapter.read(cssPath);
+  async onunload() {
+    console.log("Unloading FootLinker plugin...");
+    // First disconnect all observers
+    this.disconnectObservers();
 
-      // Remove any existing style element for styles.css
-      const existingStyle = document.getElementById("footlinker-styles-css");
-      if (existingStyle) {
-        existingStyle.remove();
-      }
-
-      // Create a new style element for styles.css
-      const style = document.createElement("style");
-      style.id = "footlinker-styles-css";
-      style.textContent = css;
-
-      // Append the style element to the document head
-      document.head.appendChild(style);
-    } catch (error) {
-      console.error("Error injecting CSS from file:", error);
-    }
-  }
-
-  removeCSS() {
-    // Remove the dynamically injected CSS
-    const dynamicStyle = document.getElementById("footlinker-dynamic-css");
-    if (dynamicStyle) {
-      dynamicStyle.remove();
-    }
-
-    // Remove the CSS injected from styles.css
-    const fileStyle = document.getElementById("footlinker-styles-css");
-    if (fileStyle) {
-      fileStyle.remove();
-    }
+    // Then remove all footers and wait for them to be cleaned up
+    await Promise.all(
+      this.app.workspace.getLeavesOfType("markdown")
+        .map(leaf => {
+          if (leaf.view instanceof MarkdownView) {
+            return this.removeExistingFootLinker(leaf.view.contentEl);
+          }
+          return Promise.resolve();
+        })
+    );
   }
 
   async loadSettings() {
@@ -162,15 +139,15 @@ export default class FootLinkerPlugin extends Plugin {
 
       // Always disconnect observers before any DOM operations
       this.disconnectObservers();
-      
+
       // Remove any existing footers and wait for the animation to complete
       await this.removeExistingFootLinker(view.contentEl);
 
       const footLinker = await this.createFootLinker(file);
-      
+
       // Double check no footers exist before adding the new one
       container.querySelectorAll(".footlinker").forEach(el => el.remove());
-      
+
       container.appendChild(footLinker);
       this.observeContainer(container);
     } catch (error) {
@@ -225,7 +202,7 @@ export default class FootLinkerPlugin extends Plugin {
     return new Promise((resolve) => {
       // Disconnect any existing observers first
       this.disconnectObservers();
-      
+
       const footers = container.querySelectorAll(".footlinker");
       if (footers.length === 0) {
         resolve();
@@ -233,7 +210,7 @@ export default class FootLinkerPlugin extends Plugin {
       }
 
       let remainingFooters = footers.length;
-      
+
       // Remove all footlinker elements with fade animation
       footers.forEach((el) => {
         el.addClass("footlinker--hidden");
@@ -414,25 +391,5 @@ export default class FootLinkerPlugin extends Plugin {
     }
 
     return hasContent ? container : null;
-  }
-
-  async onunload() {
-    console.log("Unloading FootLinker plugin...");
-    // First disconnect all observers
-    this.disconnectObservers();
-    
-    // Then remove all footers and wait for them to be cleaned up
-    await Promise.all(
-      this.app.workspace.getLeavesOfType("markdown")
-        .map(leaf => {
-          if (leaf.view instanceof MarkdownView) {
-            return this.removeExistingFootLinker(leaf.view.contentEl);
-          }
-          return Promise.resolve();
-        })
-    );
-    
-    // Finally remove CSS
-    this.removeCSS();
   }
 }
