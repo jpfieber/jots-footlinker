@@ -150,20 +150,27 @@ export default class FootLinkerPlugin extends Plugin {
     try {
       const file = view.file;
       if (!file) {
-        this.removeExistingFootLinker(view.contentEl);
+        await this.removeExistingFootLinker(view.contentEl);
         return;
       }
 
       const container = this.getContainer(view);
       if (!container || this.isExcludedBySelector(container)) {
-        this.removeExistingFootLinker(view.contentEl);
+        await this.removeExistingFootLinker(view.contentEl);
         return;
       }
 
-      this.removeExistingFootLinker(view.contentEl);
+      // Always disconnect observers before any DOM operations
       this.disconnectObservers();
+      
+      // Remove any existing footers and wait for the animation to complete
+      await this.removeExistingFootLinker(view.contentEl);
 
       const footLinker = await this.createFootLinker(file);
+      
+      // Double check no footers exist before adding the new one
+      container.querySelectorAll(".footlinker").forEach(el => el.remove());
+      
       container.appendChild(footLinker);
       this.observeContainer(container);
     } catch (error) {
@@ -205,21 +212,39 @@ export default class FootLinkerPlugin extends Plugin {
 
   async removeExistingFooters() {
     // Remove footers from all markdown views
-    this.app.workspace.iterateAllLeaves(leaf => {
+    const leaves = this.app.workspace.getLeavesOfType("markdown");
+    await Promise.all(leaves.map(leaf => {
       if (leaf.view instanceof MarkdownView) {
-        this.removeExistingFootLinker(leaf.view.contentEl);
+        return this.removeExistingFootLinker(leaf.view.contentEl);
       }
-    });
+      return Promise.resolve();
+    }));
   }
 
   removeExistingFootLinker(container) {
-    // Disconnect any existing observers first
-    this.disconnectObservers();
-    // Remove all footlinker elements
-    container.querySelectorAll(".footlinker").forEach((el) => {
-      el.addClass("footlinker--hidden");
-      // Use setTimeout to allow the fade-out animation to complete
-      setTimeout(() => el.remove(), 600);
+    return new Promise((resolve) => {
+      // Disconnect any existing observers first
+      this.disconnectObservers();
+      
+      const footers = container.querySelectorAll(".footlinker");
+      if (footers.length === 0) {
+        resolve();
+        return;
+      }
+
+      let remainingFooters = footers.length;
+      
+      // Remove all footlinker elements with fade animation
+      footers.forEach((el) => {
+        el.addClass("footlinker--hidden");
+        setTimeout(() => {
+          el.remove();
+          remainingFooters--;
+          if (remainingFooters === 0) {
+            resolve();
+          }
+        }, 600);
+      });
     });
   }
 
@@ -391,18 +416,23 @@ export default class FootLinkerPlugin extends Plugin {
     return hasContent ? container : null;
   }
 
-  onunload() {
+  async onunload() {
     console.log("Unloading FootLinker plugin...");
     // First disconnect all observers
     this.disconnectObservers();
-    // Then remove all footers with fade-out effect
-    this.app.workspace.iterateAllLeaves(leaf => {
-      if (leaf.view instanceof MarkdownView) {
-        this.removeExistingFootLinker(leaf.view.contentEl);
-      }
-    });
+    
+    // Then remove all footers and wait for them to be cleaned up
+    await Promise.all(
+      this.app.workspace.getLeavesOfType("markdown")
+        .map(leaf => {
+          if (leaf.view instanceof MarkdownView) {
+            return this.removeExistingFootLinker(leaf.view.contentEl);
+          }
+          return Promise.resolve();
+        })
+    );
+    
     // Finally remove CSS
     this.removeCSS();
-
   }
 }
