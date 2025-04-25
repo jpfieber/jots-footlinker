@@ -27,8 +27,9 @@ export function addJots(
             const trimmedLine = line.replace(/^>+\s*/, ''); // Remove callout markers
             jotItems.forEach(item => {
                 if (trimmedLine.includes(`[${item.taskChar}]`)) {
+                    const taskText = trimmedLine.replace(/^\s*-\s*\[.\]\s*/, ''); // Remove the task marker pattern
                     const tasks = jotGroups.get(item.label) || [];
-                    tasks.push(trimmedLine.trim());
+                    tasks.push(taskText);
                     jotGroups.set(item.label, tasks);
                 }
             });
