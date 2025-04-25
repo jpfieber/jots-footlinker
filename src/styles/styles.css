@@ -286,3 +286,41 @@
     background-color: var(--interactive-accent);
     color: var(--text-on-accent);
 }
+
+/* Task List Styles */
+.footlinker--tasks .task-list {
+    list-style: none;
+    padding-left: 0;
+}
+
+.footlinker--tasks .task-list-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    margin-bottom: 6px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.footlinker--tasks .task-list-item-checkbox {
+    flex-shrink: 0;
+    cursor: pointer;
+    width: 16px;
+    height: 16px;
+    margin-top: 2px;
+    color: var(--checkbox-color);
+    transition: color 0.1s ease-in-out;
+}
+
+.footlinker--tasks .task-list-item-checkbox:hover {
+    color: var(--checkbox-color-hover);
+}
+
+.footlinker--tasks .task-list-item-text {
+    flex-grow: 1;
+}
+
+.footlinker--tasks .task-list-item.is-checked .task-list-item-text {
+    color: var(--text-faint);
+    text-decoration: line-through;
+}

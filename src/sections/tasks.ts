@@ -1,4 +1,4 @@
-import { TFile, App } from 'obsidian';
+import { TFile, App, setIcon } from 'obsidian';
 
 interface TaskSettings {
     headerName: string;
@@ -12,6 +12,18 @@ export function clearTaskQueries() {
     activeQueries.clear();
 }
 
+interface Task {
+    text: string;
+    checked: boolean;
+    path: string;
+    line: number;
+    rawContent?: string;
+    position?: {
+        start: { line: number; col: number; };
+        end: { line: number; col: number; };
+    };
+}
+
 export async function addTasks(
     footLinker: HTMLElement,
     file: TFile,
@@ -21,12 +33,10 @@ export async function addTasks(
 ) {
     if (!settings.query) return;
 
-    // Check if Dataview or Tasks plugin is available
-    const dataviewAPI = (app as any).plugins.plugins.dataview?.api;
-    const tasksAPI = (app as any).plugins.plugins.tasks?.cache;
-
-    if (!dataviewAPI && !tasksAPI) {
-        console.log("Neither Dataview nor Tasks plugin is available");
+    // Check if Tasks plugin is available - try different possible API locations
+    const tasksPlugin = app.plugins.plugins["obsidian-tasks-plugin"];
+    if (!tasksPlugin) {
+        console.log("Tasks plugin is not available");
         return;
     }
 
@@ -35,27 +45,62 @@ export async function addTasks(
     activeQueries.add(queryId);
 
     try {
-        let tasks: any[] = [];
-
-        if (dataviewAPI) {
-            tasks = await executeDataviewQuery(dataviewAPI, settings.query, file);
-        } else if (tasksAPI) {
-            tasks = await executeTasksQuery(tasksAPI, settings.query, file);
-        }
+        // Use the Tasks plugin API
+        const tasks = await executeTasksQuery(tasksPlugin, settings.query, file);
 
         if (tasks.length > 0) {
             const tasksDiv = footLinker.createDiv({ cls: 'footlinker--tasks' });
             tasksDiv.createEl('h2', { text: settings.headerName || 'Tasks' });
-            const tasksList = tasksDiv.createEl('ul');
+            const tasksList = tasksDiv.createEl('ul', { cls: 'task-list' });
 
             tasks.forEach(task => {
-                const li = tasksList.createEl('li');
-                if (typeof task === 'string') {
-                    li.setText(task);
+                const li = tasksList.createEl('li', { cls: 'task-list-item' });
+                const checkbox = li.createEl('div', { cls: 'task-list-item-checkbox' });
+                checkbox.setAttribute('aria-label', task.checked ? 'Toggle task complete' : 'Toggle task incomplete');
+
+                // Set the checkbox state
+                if (task.checked) {
+                    checkbox.addClass('is-checked');
+                    setIcon(checkbox, 'check-square');
                 } else {
-                    // Handle Dataview task object
-                    li.setText(task.text || task.content || '');
+                    setIcon(checkbox, 'square');
                 }
+
+                // Add click handler to toggle task state
+                checkbox.addEventListener('click', async () => {
+                    try {
+                        // Get the file that contains the task
+                        const taskFile = app.vault.getAbstractFileByPath(task.path);
+                        if (!(taskFile instanceof TFile)) return;
+
+                        // Read the file content
+                        const content = await app.vault.read(taskFile);
+                        const lines = content.split('\n');
+                        const taskLine = lines[task.line];
+
+                        // Toggle the checkbox in the task text
+                        const newTaskLine = taskLine.replace(
+                            /^(\s*-\s*\[)([x ])(\])/,
+                            (_, start, check) => `${start}${check === 'x' ? ' ' : 'x'}]`
+                        );
+                        lines[task.line] = newTaskLine;
+
+                        // Save the modified file
+                        await app.vault.modify(taskFile, lines.join('\n'));
+
+                        // Update the checkbox UI
+                        const isNowChecked = !task.checked;
+                        checkbox.toggleClass('is-checked', isNowChecked);
+                        setIcon(checkbox, isNowChecked ? 'check-square' : 'square');
+                        task.checked = isNowChecked;
+                    } catch (error) {
+                        console.error('Error toggling task:', error);
+                    }
+                });
+
+                // Add the task text with proper formatting
+                const textSpan = li.createSpan({ cls: 'task-list-item-text' });
+                formatTaskContent(task.rawContent || task.text, textSpan, file, app, isEditMode);
             });
         }
     } catch (error) {
@@ -65,51 +110,78 @@ export async function addTasks(
     }
 }
 
-async function executeDataviewQuery(api: any, query: string, file: TFile): Promise<any[]> {
+async function executeTasksQuery(tasksPlugin: any, query: string, file: TFile): Promise<Task[]> {
     try {
-        // Convert natural language to Dataview query
-        const dql = convertToDataviewQuery(query);
-        const result = await api.query(dql, file.path);
-        return result.values || [];
-    } catch (error) {
-        console.error('Dataview query error:', error);
-        return [];
-    }
-}
+        // Get the plugin's task list from the cache for better performance
+        const allTasks = tasksPlugin.cache?.getTasks() || [];
 
-async function executeTasksQuery(api: any, query: string, file: TFile): Promise<any[]> {
-    try {
-        // Tasks plugin uses its own query format
-        const tasks = api.getTasks().filter((task: any) => {
-            // Basic query matching - can be expanded
-            if (query.includes('not done') && task.checked) return false;
-            if (query.includes('due before tomorrow') && (!task.due || task.due > Date.now() + 86400000)) return false;
-            if (query.includes('path includes') && !task.path.includes(query.split('path includes')[1].trim())) return false;
-            return true;
-        });
-        return tasks.map((task: any) => task.text);
+        // Parse natural language query into filter conditions
+        const conditions = {
+            notDone: query.includes('not done'),
+            dueBefore: query.includes('due before tomorrow'),
+            pathIncludes: query.includes('path includes') ?
+                query.split('path includes')[1].trim() : null
+        };
+
+        // Apply filters
+        const tasks = allTasks
+            .filter((task: any) => {
+                // Not done filter
+                if (conditions.notDone && task.checked) return false;
+
+                // Due before tomorrow filter
+                if (conditions.dueBefore) {
+                    const tomorrow = new Date();
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    tomorrow.setHours(0, 0, 0, 0);
+                    if (!task.due || new Date(task.due) >= tomorrow) return false;
+                }
+
+                // Path includes filter
+                if (conditions.pathIncludes && !task.path.includes(conditions.pathIncludes)) {
+                    return false;
+                }
+
+                return true;
+            })
+            .map((task: any) => ({
+                text: task.text || '',
+                checked: task.checked || false,
+                path: task.filePath || task.path,
+                line: task.lineNumber || task.line || 0,
+                rawContent: task.description || task.text || '',
+                position: task.position || null
+            }));
+
+        return tasks;
     } catch (error) {
         console.error('Tasks query error:', error);
         return [];
     }
 }
 
-function convertToDataviewQuery(naturalQuery: string): string {
-    // Convert natural language to Dataview Query Language
-    let dql = 'TASK';
+function formatTaskContent(content: string, el: HTMLElement, file: TFile, app: App, isEditMode: () => boolean): void {
+    // Remove task marker and checkbox
+    const textContent = content.replace(/^\s*-?\s*\[[x ]\]\s*/, '');
 
-    if (naturalQuery.includes('due before tomorrow')) {
-        dql += ' WHERE due < date(tomorrow)';
-    }
-    if (naturalQuery.includes('!completed') || naturalQuery.includes('not done')) {
-        dql += ' WHERE !completed';
-    }
-    if (naturalQuery.includes('due = today')) {
-        dql += ' WHERE due = date(today)';
-    }
-    if (naturalQuery.includes('contains(tags,')) {
-        dql += ` WHERE ${naturalQuery}`; // Pass through complex queries
-    }
+    // Split the content into segments
+    const segments = textContent.split(/(\[\[.*?\]\])/g);
 
-    return dql;
+    segments.forEach(segment => {
+        if (segment.startsWith('[[') && segment.endsWith(']]')) {
+            // Handle wiki links
+            const linkText = segment.slice(2, -2);
+            const link = el.createEl('a', {
+                cls: isEditMode() ? 'cm-hmd-internal-link cm-underline' : 'internal-link',
+                text: linkText
+            });
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                app.workspace.openLinkText(linkText, file.path);
+            });
+        } else if (segment.trim()) {
+            // Handle regular text
+            el.createSpan({ text: segment });
+        }
+    });
 }
