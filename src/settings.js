@@ -18,6 +18,12 @@ export class FootLinkerSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
+  async saveAndRefresh() {
+    await this.plugin.saveSettings();
+    await this.plugin.removeExistingFooters();
+    await this.plugin.immediateUpdateFootLinker();
+  }
+
   display() {
     const { containerEl } = this;
     containerEl.empty();
@@ -108,7 +114,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
           .setValue(section.label)
           .onChange(async (value) => {
             this.plugin.settings.relatedFiles[index].label = value;
-            await this.plugin.saveSettings();
+            await this.saveAndRefresh();
           }))
         .addText(text => {
           text
@@ -119,7 +125,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
           text.onChange(async (value) => {
             this.plugin.settings.relatedFiles[index].path = value;
-            await this.plugin.saveSettings();
+            await this.saveAndRefresh();
           });
         });
     });
@@ -144,7 +150,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
             enabledCategories: [],
             showBacklinks: true
           });
-          await this.plugin.saveSettings();
+          await this.saveAndRefresh();
           this.display();
         }));
 
@@ -165,7 +171,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
             text.onChange(async (value) => {
               this.plugin.settings.pathSettings[index].path = value;
-              await this.plugin.saveSettings();
+              await this.saveAndRefresh();
             });
           })
           .addExtraButton(button => button
@@ -173,7 +179,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
             .setTooltip('Delete')
             .onClick(async () => {
               this.plugin.settings.pathSettings.splice(index, 1);
-              await this.plugin.saveSettings();
+              await this.saveAndRefresh();
               this.display();
             }));
 
@@ -206,7 +212,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
                   pathSetting.enabledCategories.push(category.id);
                 }
               }
-              await this.plugin.saveSettings();
+              await this.saveAndRefresh();
               this.updateSelectionDisplay(pathSettingContainer, pathSetting, availableCategories);
             });
           });
@@ -236,8 +242,8 @@ export class FootLinkerSettingTab extends PluginSettingTab {
             label: '',
             taskChar: ''
           });
-          await this.plugin.saveSettings();
-          this.display(); // The active tab will be preserved now
+          await this.saveAndRefresh();
+          this.display();
         }));
 
     // Existing Jot Groups
@@ -252,22 +258,22 @@ export class FootLinkerSettingTab extends PluginSettingTab {
             .setValue(jot.label)
             .onChange(async (value) => {
               this.plugin.settings.jotItems[index].label = value;
-              await this.plugin.saveSettings();
+              await this.saveAndRefresh();
             }))
           .addText(text => text
             .setPlaceholder('Task char')
             .setValue(jot.taskChar)
             .onChange(async (value) => {
               this.plugin.settings.jotItems[index].taskChar = value;
-              await this.plugin.saveSettings();
+              await this.saveAndRefresh();
             }))
           .addExtraButton(button => button
             .setIcon('cross')
             .setTooltip('Delete')
             .onClick(async () => {
               this.plugin.settings.jotItems.splice(index, 1);
-              await this.plugin.saveSettings();
-              this.display(); // The active tab will be preserved now
+              await this.saveAndRefresh();
+              this.display();
             }));
       });
     }
@@ -285,9 +291,9 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
     // Show backlinks if enabled
     if (pathSetting.showBacklinks) {
-      this.createSelectionTag(displayDiv, 'Backlinks', () => {
+      this.createSelectionTag(displayDiv, 'Backlinks', async () => {
         pathSetting.showBacklinks = false;
-        this.plugin.saveSettings();
+        await this.saveAndRefresh();
         this.updateSelectionDisplay(container, pathSetting, availableCategories);
       });
     }
@@ -296,9 +302,9 @@ export class FootLinkerSettingTab extends PluginSettingTab {
     pathSetting.enabledCategories.forEach(id => {
       const category = availableCategories.find(c => c.id === id);
       if (category) {
-        this.createSelectionTag(displayDiv, category.label, () => {
+        this.createSelectionTag(displayDiv, category.label, async () => {
           pathSetting.enabledCategories = pathSetting.enabledCategories.filter(cid => cid !== id);
-          this.plugin.saveSettings();
+          await this.saveAndRefresh();
           this.updateSelectionDisplay(container, pathSetting, availableCategories);
         });
       }

@@ -12,11 +12,8 @@ function aliasesContains(fileName, aliases) {
 export default class FootLinkerPlugin extends Plugin {
   async onload() {
     console.log("Loading FootLinker plugin...");
-    // Load the plugin's CSS file
-    this.injectCSSFromFile();
 
-    await this.loadSettings();
-
+    // Initialize update functions first
     const updateFootLinkerCallback = async () => {
       try {
         await this.updateFootLinker();
@@ -25,12 +22,19 @@ export default class FootLinkerPlugin extends Plugin {
       }
     };
 
-    this.debouncedUpdateFootLinker = debounce(updateFootLinkerCallback, this.settings.updateDelay, true);
     this.immediateUpdateFootLinker = updateFootLinkerCallback;
+    this.debouncedUpdateFootLinker = debounce(updateFootLinkerCallback, 1000, true); // Default delay of 1000ms
+
+    // Load CSS file
+    this.injectCSSFromFile();
+
+    // Load settings after update functions are initialized
+    await this.loadSettings();
 
     this.addSettingTab(new FootLinkerSettingTab(this.app, this));
-
     this.registerEventHandlers();
+
+    // Update footer after everything is ready
     this.app.workspace.onLayoutReady(() => this.immediateUpdateFootLinker());
   }
 
@@ -94,6 +98,9 @@ export default class FootLinkerPlugin extends Plugin {
       this.settings.sectionSettings = {};
     }
     await this.saveData(this.settings);
+    // Refresh footers after settings change
+    await this.removeExistingFooters();
+    await this.immediateUpdateFootLinker();
   }
 
   registerEventHandlers() {
@@ -196,8 +203,24 @@ export default class FootLinkerPlugin extends Plugin {
     });
   }
 
+  async removeExistingFooters() {
+    // Remove footers from all markdown views
+    this.app.workspace.iterateAllLeaves(leaf => {
+      if (leaf.view instanceof MarkdownView) {
+        this.removeExistingFootLinker(leaf.view.contentEl);
+      }
+    });
+  }
+
   removeExistingFootLinker(container) {
-    container.querySelectorAll(".footlinker").forEach((el) => el.remove());
+    // Disconnect any existing observers first
+    this.disconnectObservers();
+    // Remove all footlinker elements
+    container.querySelectorAll(".footlinker").forEach((el) => {
+      el.addClass("footlinker--hidden");
+      // Use setTimeout to allow the fade-out animation to complete
+      setTimeout(() => el.remove(), 600);
+    });
   }
 
   disconnectObservers() {
@@ -370,8 +393,15 @@ export default class FootLinkerPlugin extends Plugin {
 
   onunload() {
     console.log("Unloading FootLinker plugin...");
+    // First disconnect all observers
     this.disconnectObservers();
-    document.querySelectorAll(".footlinker").forEach((el) => el.remove());
+    // Then remove all footers with fade-out effect
+    this.app.workspace.iterateAllLeaves(leaf => {
+      if (leaf.view instanceof MarkdownView) {
+        this.removeExistingFootLinker(leaf.view.contentEl);
+      }
+    });
+    // Finally remove CSS
     this.removeCSS();
 
   }

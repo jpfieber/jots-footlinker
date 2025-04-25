@@ -3,7 +3,13 @@ import { TFile, App } from 'obsidian';
 export interface JotItem {
     id: string;
     label: string;
-    taskChar: string;
+    taskChar: string; // Now can contain multiple characters separated by commas
+}
+
+interface TaskItem {
+    text: string;
+    time?: string; // Optional time property
+    prefix?: string; // First letter of the task
 }
 
 function createWikiLink(linkText: string, el: HTMLElement, file: TFile, app: App, isEditMode: () => boolean): void {
@@ -109,6 +115,28 @@ function formatTaskText(taskText: string, li: HTMLElement, file: TFile, app: App
     }
 }
 
+// Extract time from a task if it exists using common time patterns
+function extractTime(text: string): string | undefined {
+    const timePattern = /\b(\d{1,2}:\d{2}(?::\d{2})?(?:\s*[AaPp][Mm])?)\b|\(\s*time::\s*([^\)]+)\)/;
+    const match = text.match(timePattern);
+    return match ? (match[1] || match[2]) : undefined;
+}
+
+// Sort tasks based on time or prefix
+function sortTasks(tasks: TaskItem[]): TaskItem[] {
+    return tasks.sort((a, b) => {
+        // If both items have time, sort by time
+        if (a.time && b.time) {
+            return a.time.localeCompare(b.time);
+        }
+        // If only one has time, prioritize the one with time
+        if (a.time) return -1;
+        if (b.time) return 1;
+        // If neither has time, sort by prefix
+        return (a.prefix || '').localeCompare(b.prefix || '');
+    });
+}
+
 export function addJots(
     footLinker: HTMLElement,
     file: TFile,
@@ -120,7 +148,7 @@ export function addJots(
 
     app.vault.read(file).then((content: string) => {
         const lines = content.split('\n');
-        const jotGroups = new Map<string, string[]>();
+        const jotGroups = new Map<string, TaskItem[]>();
 
         // Initialize groups for each jot item
         jotItems.forEach(item => jotGroups.set(item.label, []));
@@ -129,10 +157,17 @@ export function addJots(
         lines.forEach(line => {
             const trimmedLine = line.replace(/^>+\s*/, ''); // Remove callout markers
             jotItems.forEach(item => {
-                if (trimmedLine.includes(`[${item.taskChar}]`)) {
+                // Split the taskChar string by commas and trim each character
+                const taskChars = item.taskChar.split(',').map(char => char.trim());
+                const taskCharPattern = taskChars.map(char => `\\[${char}\\]`).join('|');
+                const taskRegex = new RegExp(`^\\s*-\\s*(${taskCharPattern})\\s*`);
+
+                if (taskRegex.test(trimmedLine)) {
                     const taskText = trimmedLine.replace(/^\s*-\s*\[.\]\s*/, ''); // Remove the task marker pattern
+                    const time = extractTime(taskText);
+                    const prefix = taskText.trim()[0] || '';
                     const tasks = jotGroups.get(item.label) || [];
-                    tasks.push(taskText);
+                    tasks.push({ text: taskText, time, prefix });
                     jotGroups.set(item.label, tasks);
                 }
             });
@@ -145,9 +180,11 @@ export function addJots(
                 sectionDiv.createEl('h2', { text: label });
 
                 const tasksList = sectionDiv.createEl('ul');
-                tasks.forEach(task => {
+                // Sort tasks before rendering
+                const sortedTasks = sortTasks(tasks);
+                sortedTasks.forEach(task => {
                     const li = tasksList.createEl('li');
-                    formatTaskText(task, li, file, app, isEditMode);
+                    formatTaskText(task.text, li, file, app, isEditMode);
                 });
             }
         });
