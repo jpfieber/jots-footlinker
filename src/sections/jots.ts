@@ -137,7 +137,7 @@ function sortTasks(tasks: TaskItem[]): TaskItem[] {
     });
 }
 
-export function addJots(
+export async function addJots(
     footLinker: HTMLElement,
     file: TFile,
     app: App,
@@ -213,22 +213,11 @@ export function addJots(
         processChunk();
     }
 
-    // Get cached content if available, otherwise read file
-    const cache = app.metadataCache.getFileCache(file);
-    const sections = cache?.sections;
-    let content = '';
-
-    if (sections) {
-        content = sections.map(section => {
-            const start = section.position.start.offset;
-            const end = section.position.end.offset;
-            return app.vault.cachedRead(file).then(fileContent => fileContent.slice(start, end));
-        }).join('\n');
-    }
-
-    if (content) {
+    try {
+        // Read the file content directly
+        const content = await app.vault.cachedRead(file);
         processContent(content);
-    } else {
-        app.vault.cachedRead(file).then(processContent);
+    } catch (error) {
+        console.error('[FootLinker] Error reading file content:', error);
     }
 }

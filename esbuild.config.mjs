@@ -27,6 +27,9 @@ const buildOptions = {
     },
     entryPoints: ["src/main.ts"],
     bundle: true,
+    platform: 'node',
+    tsconfig: './tsconfig.json',
+    resolveExtensions: ['.ts', '.js'],
     external: [
         "obsidian",
         "electron",

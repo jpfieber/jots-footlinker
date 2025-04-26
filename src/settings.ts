@@ -1,6 +1,7 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import { FolderSuggest } from './foldersuggester';
 import FootLinkerPlugin from './main';
+import { SectionManagerModal } from './modals/sections';
 
 interface RelatedFile {
   id: string;
@@ -8,10 +9,9 @@ interface RelatedFile {
   path: string;
 }
 
-interface PathSetting {
+export interface PathSetting {
   path: string;
   enabledCategories: string[];
-  showBacklinks: boolean;
 }
 
 interface JotItem {
@@ -26,7 +26,10 @@ export const DEFAULT_SETTINGS = {
     label: '',
     path: ''
   })),
-  pathSettings: [] as PathSetting[],
+  pathSettings: [{
+    path: '',
+    enabledCategories: ['backlinks', 'related-files', 'jots']
+  }],
   jotItems: [] as JotItem[],
   activeTab: 'related-files' as 'related-files' | 'footer-notes' | 'jots'
 };
@@ -194,7 +197,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
           this.plugin.settings.pathSettings.push({
             path: '',
             enabledCategories: [],
-            showBacklinks: true
           });
           await this.saveAndRefresh();
           this.display();
@@ -234,44 +236,22 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
         // Categories Dropdown
         new Setting(pathSettingContainer)
-          .setName('Show in Footer')
-          .setDesc('Select which elements to show in the footer for this note type')
-          .addDropdown(dropdown => {
-            // Clear any existing options first
-            dropdown.selectEl.empty();
-
-            // Add Backlinks option
-            dropdown.addOption('backlinks', 'Backlinks');
-
-            // Add all valid categories
-            availableCategories.forEach((cat: RelatedFile) => {
-              if (cat && cat.label && cat.path) {  // Only add valid categories
-                dropdown.addOption(cat.id, cat.label);
-              }
-            });
-
-            // Set selected value
-            const selectedValue = pathSetting.showBacklinks ? 'backlinks' : availableCategories[0]?.id || '';
-            dropdown.setValue(selectedValue);
-
-            // Update selection and display current selections
-            dropdown.onChange(async (value) => {
-              if (value === 'backlinks') {
-                pathSetting.showBacklinks = true;
-              } else {
-                pathSetting.showBacklinks = false;  // Disable backlinks when selecting a category
-                const category = availableCategories.find(c => c.id === value);
-                if (category && !pathSetting.enabledCategories.includes(category.id)) {
-                  pathSetting.enabledCategories.push(category.id);
+          .setName('Manage Footer Sections')
+          .setDesc('Configure which sections to show in the footer')
+          .addButton(button => button
+            .setButtonText('Configure Sections')
+            .onClick(() => {
+              new SectionManagerModal(
+                this.app,
+                pathSetting,
+                availableCategories,
+                async (updatedPathSetting: PathSetting) => {
+                  Object.assign(pathSetting, updatedPathSetting);
+                  await this.plugin.saveSettings();
+                  this.display();
                 }
-              }
-              await this.plugin.saveSettings();
-              this.updateSelectionDisplay(pathSettingContainer, pathSetting, availableCategories);
-            });
-          });
-
-        // Display current selections
-        this.updateSelectionDisplay(pathSettingContainer, pathSetting, availableCategories);
+              ).open();
+            }));
       });
     }
   }
@@ -336,37 +316,23 @@ export class FootLinkerSettingTab extends PluginSettingTab {
     const list = container.querySelector('.selection-tag-list');
     if (!list || pathSetting.enabledCategories.length <= 1) return;
 
+    let draggedEl: HTMLElement | null = null;
+
     const getTags = () => Array.from(list.querySelectorAll('.selection-tag')) as HTMLElement[];
 
-    // Event handler functions
     const onDragStart = (e: DragEvent, tag: HTMLElement) => {
       if (!e.dataTransfer) return;
+      draggedEl = tag;
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', '');
-      tag.classList.add('dragging');
+      e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+      requestAnimationFrame(() => tag.classList.add('dragging'));
     };
 
-    const onDragOver = (e: Event) => {
-      const dragEvent = e as DragEvent;
-      dragEvent.preventDefault();
-      const draggingEl = list.querySelector('.dragging') as HTMLElement;
-      if (!draggingEl) return;
+    const onDragEnd = (tag: HTMLElement) => {
+      draggedEl = null;
+      requestAnimationFrame(() => tag.classList.remove('dragging'));
 
-      const siblings = getTags().filter(t => !t.classList.contains('dragging'));
-      const nextSibling = siblings.find(sibling => {
-        const rect = sibling.getBoundingClientRect();
-        return dragEvent.clientY <= rect.top + rect.height / 2;
-      });
-
-      if (nextSibling) {
-        list.insertBefore(draggingEl, nextSibling);
-      } else {
-        list.appendChild(draggingEl);
-      }
-    };
-
-    const onDragEnd = async (tag: HTMLElement) => {
-      tag.classList.remove('dragging');
+      // Get the new order immediately after drag ends
       const newOrder = getTags().map(t => t.querySelector('.selection-tag-label')?.textContent);
 
       // Update enabled categories order
@@ -378,7 +344,40 @@ export class FootLinkerSettingTab extends PluginSettingTab {
         })
         .filter(id => id !== '');
 
-      await this.plugin.saveSettings();
+      this.plugin.saveSettings();
+    };
+
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!draggedEl) return;
+
+      const currentTags = getTags();
+      const currentPos = currentTags.indexOf(draggedEl);
+      if (currentPos === -1) return;
+
+      const mouseY = e.clientY;
+      let targetIndex = currentTags.findIndex(tag => {
+        if (tag === draggedEl) return false;
+        const rect = tag.getBoundingClientRect();
+        return mouseY < (rect.top + rect.bottom) / 2;
+      });
+
+      if (targetIndex === -1) {
+        targetIndex = currentTags.length;
+      }
+
+      if (targetIndex !== currentPos) {
+        requestAnimationFrame(() => {
+          if (!draggedEl) return;
+          if (targetIndex === currentTags.length) {
+            list.appendChild(draggedEl);
+          } else {
+            list.insertBefore(draggedEl, currentTags[targetIndex]);
+          }
+        });
+      }
     };
 
     // Add event listeners to each tag
@@ -389,7 +388,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
     });
 
     // Add dragover listener to list
-    list.addEventListener('dragover', onDragOver as EventListener);
+    list.addEventListener('dragover', (e) => onDragOver(e as DragEvent));
   }
 
   private updateSelectionDisplay(container: HTMLElement, pathSetting: PathSetting, availableCategories: RelatedFile[]): void {
@@ -400,15 +399,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
     // Create new display
     const displayDiv = container.createDiv({ cls: 'selected-items' });
     const tagList = displayDiv.createDiv({ cls: 'selection-tag-list' });
-
-    // Show backlinks if enabled
-    if (pathSetting.showBacklinks) {
-      this.createSelectionTag(tagList, 'Backlinks', async () => {
-        pathSetting.showBacklinks = false;
-        await this.plugin.saveSettings();
-        this.updateSelectionDisplay(container, pathSetting, availableCategories);
-      });
-    }
 
     // Show selected categories
     pathSetting.enabledCategories.forEach((id: string) => {
@@ -454,4 +444,16 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
     return tag;
   }
+}
+
+export interface FootLinkerSettings {
+  pathSettings: PathSetting[];
+}
+
+export function migrateSettings(settings: FootLinkerSettings) {
+  settings.pathSettings.forEach((pathSetting: PathSetting) => {
+    if (!pathSetting.enabledCategories) {
+      pathSetting.enabledCategories = ['backlinks', 'related-files', 'jots'];
+    }
+  });
 }

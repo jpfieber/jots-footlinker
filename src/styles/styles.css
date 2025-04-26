@@ -241,23 +241,9 @@
     gap: 8px;
     min-height: 32px;
     padding: 4px;
-    align-items: center;
-    overflow-x: auto;
-    white-space: nowrap;
-    width: 100%;
+    transition: none;
 }
 
-/* Hide scrollbar but keep functionality */
-.selection-tag-list::-webkit-scrollbar {
-    display: none;
-}
-
-.selection-tag-list {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-}
-
-/* Selection Tags */
 .selection-tag {
     display: inline-flex;
     align-items: center;
@@ -270,14 +256,21 @@
     font-size: 0.75em;
     user-select: none;
     touch-action: none;
-    flex: 0 0 auto;
-    margin: 0;
+    transform: translate(0, 0);
+    transition: transform 0.12s ease;
+    will-change: transform;
+    position: relative;
+    z-index: 1;
 }
 
 .selection-tag.dragging {
-    opacity: 0.7;
-    transform: scale(1.02);
+    opacity: 0.9;
     cursor: grabbing;
+    position: relative;
+    z-index: 2;
+    background-color: var(--interactive-accent);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: none;
 }
 
 .selection-tag-grip {
@@ -286,6 +279,10 @@
     opacity: 0.7;
     font-size: 0.9em;
     line-height: 1;
+}
+
+.selection-tag.dragging .selection-tag-grip {
+    cursor: grabbing;
 }
 
 .selection-tag-label {
@@ -365,4 +362,57 @@
 .footlinker--tasks .task-list-item.is-checked .task-list-item-text {
     color: var(--text-faint);
     text-decoration: line-through;
+}
+
+/* Section Modal Formatting */
+
+.section-manager {
+    display: flex;
+    gap: 20px;
+    margin: 20px 0;
+}
+
+.available-sections,
+.selected-sections {
+    flex: 1;
+    min-width: 200px;
+}
+
+.section-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 4px;
+    min-height: 100px;
+}
+
+.section-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: var(--background-primary);
+    border-bottom: 1px solid var(--background-modifier-border);
+    cursor: grab;
+}
+
+.section-item:last-child {
+    border-bottom: none;
+}
+
+.section-item.dragging {
+    opacity: 0.5;
+    cursor: grabbing;
+}
+
+.drag-handle {
+    cursor: grab;
+    opacity: 0.5;
+}
+
+.section-item button {
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: 4px;
 }

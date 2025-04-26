@@ -15,7 +15,6 @@ interface RelatedFile {
 interface PathSetting {
   path: string;
   enabledCategories: string[];
-  showBacklinks: boolean;
 }
 
 interface JotItem {
@@ -36,11 +35,7 @@ interface PluginSettings {
 
 // Extend App type to include Obsidian's MetadataCache with backlinks
 interface ObsidianAppWithBacklinks extends App {
-  metadataCache: MetadataCache & {
-    getBacklinksForFile(file: TFile): {
-      data: Map<string, any>;
-    };
-  };
+  metadataCache: MetadataCache;
 }
 
 function aliasesContains(fileName: string, aliases: string[]): boolean {
@@ -278,6 +273,48 @@ export default class FootLinkerPlugin extends Plugin {
     }
   }
 
+  async createFootLinker(file: TFile) {
+    const footLinker = createDiv({ cls: "footlinker footlinker--hidden" });
+
+    // Set CSS custom properties for ordering using the setting
+    footLinker.style.setProperty('--footlinker-z-index', String(this.settings.footerOrder));
+    footLinker.style.setProperty('--footlinker-order', String(this.settings.footerOrder));
+
+    footLinker.createDiv({ cls: "footlinker--dashed-line" });
+
+    const pathSetting = this.findMatchingPathSetting(file.path);
+
+    if (pathSetting?.enabledCategories?.length) {
+      const enabledCategories = pathSetting.enabledCategories
+        .map(id => this.settings.relatedFiles.find(rf => rf.id === id))
+        .filter((category): category is RelatedFile =>
+          category !== undefined && !!category.label && !!category.path);
+
+      addFootLinks(
+        footLinker,
+        file,
+        this.app,
+        enabledCategories,
+        this.setupLinkBehavior.bind(this),
+        () => this.isEditMode(null)
+      );
+    }
+
+    // Add jots section if there are any configured jot items
+    if (this.settings.jotItems?.length > 0) {
+      await addJots(
+        footLinker,
+        file,
+        this.app,
+        this.settings.jotItems,
+        () => this.isEditMode(null)
+      );
+    }
+
+    setTimeout(() => footLinker.removeClass("footlinker--hidden"), 10);
+    return footLinker;
+  }
+
   async addFootLinker(view: MarkdownView) {
     try {
       const file = view.file;
@@ -302,58 +339,6 @@ export default class FootLinkerPlugin extends Plugin {
     } catch (error) {
       console.error("Error in addFootLinker:", error);
     }
-  }
-
-  async createFootLinker(file: TFile) {
-    const footLinker = createDiv({ cls: "footlinker footlinker--hidden" });
-
-    // Set CSS custom properties for ordering using the setting
-    footLinker.style.setProperty('--footlinker-z-index', String(this.settings.footerOrder));
-    footLinker.style.setProperty('--footlinker-order', String(this.settings.footerOrder));
-
-    footLinker.createDiv({ cls: "footlinker--dashed-line" });
-
-    const pathSetting = this.findMatchingPathSetting(file.path);
-
-    if (pathSetting?.showBacklinks) {
-      addBacklinks(
-        footLinker,
-        file,
-        this.app as unknown as ObsidianAppWithBacklinks,  // Safe cast since we know Obsidian has this API
-        this.setupLinkBehavior.bind(this),
-        () => this.isEditMode(null)  // Create a parameterless function
-      );
-    }
-
-    // Add jots section if there are any configured jot items
-    if (this.settings.jotItems?.length > 0) {
-      addJots(
-        footLinker,
-        file,
-        this.app,
-        this.settings.jotItems,
-        () => this.isEditMode(null)  // Create a parameterless function
-      );
-    }
-
-    if (pathSetting?.enabledCategories?.length) {
-      const enabledCategories = pathSetting.enabledCategories
-        .map(id => this.settings.relatedFiles.find(rf => rf.id === id))
-        .filter((category): category is RelatedFile =>
-          category !== undefined && !!category.label && !!category.path);
-
-      addFootLinks(
-        footLinker,
-        file,
-        this.app,
-        enabledCategories,
-        this.setupLinkBehavior.bind(this),
-        () => this.isEditMode(null)  // Create a parameterless function
-      );
-    }
-
-    setTimeout(() => footLinker.removeClass("footlinker--hidden"), 10);
-    return footLinker;
   }
 
   getContainer(view: MarkdownView): HTMLElement | null {
