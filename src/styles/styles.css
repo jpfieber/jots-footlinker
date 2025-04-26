@@ -34,11 +34,6 @@
     opacity: var(--footlinker-links-opacity, 1);
 }
 
-/* Remove any specific overrides */
-.footlinker--jots {
-    /* Remove custom margin to use the generic one */
-}
-
 /* Header styling for all sections */
 [class^="footlinker--"] h2,
 [class*=" footlinker--"] h2 {
@@ -164,19 +159,19 @@
 /*------------------*/
 /* Settings Styles */
 /*------------------*/
-.footlinker-settings {
+.jots-footlinker-settings {
     display: flex;
     flex-direction: column;
 }
 
 /* Settings Tabs */
-.jots-settings-tabs {
+.jots-footlinker-settings .jots-settings-tabs {
     padding-top: 12px;
     border-bottom: 1px solid var(--background-modifier-border);
     margin-bottom: 12px;
 }
 
-.jots-settings-tab {
+.jots-footlinker-settings .jots-settings-tab {
     margin-bottom: -1px;
     padding: 6px 12px;
     font-weight: 600;
@@ -186,23 +181,23 @@
     border-radius: 4px 4px 0 0;
 }
 
-.jots-settings-tab.is-active {
+.jots-footlinker-settings .jots-settings-tab.is-active {
     border: 1px solid var(--background-modifier-border);
     border-bottom-color: var(--background-primary);
     color: var(--text-accent);
 }
 
-.jots-settings-content:not(.is-active) {
+.jots-footlinker-settings .jots-settings-content:not(.is-active) {
     display: none;
 }
 
 /* Settings Form Elements */
-.footlinker-settings input[type='text'],
-.footlinker-settings input[type='number'] {
-    text-align: right;
+.jots-footlinker-settings input[type='text'],
+.jots-footlinker-settings input[type='number'] {
+    text-align: left;
 }
 
-.footlinker-settings textarea {
+.jots-footlinker-settings textarea {
     background-color: var(--background-primary-alt);
     border: 1px solid var(--background-modifier-border);
     border-radius: 5px;
@@ -415,4 +410,56 @@
     margin-left: auto;
     padding: 2px 8px;
     border-radius: 4px;
+}
+
+/* Settings Column Headers */
+.settings-columns-header {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    margin-bottom: 12px;
+    padding: 0 12px;
+}
+
+.column-header {
+    color: var(--text-muted);
+    font-size: 0.8em;
+    font-weight: var(--font-medium);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* Remove default setting name/description spacing */
+.setting-item.no-label {
+    padding: 0;
+    border: none;
+}
+
+/* Grid layout for settings inputs */
+.setting-item.no-label .setting-item-control {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 12px;
+    padding: 6px 12px;
+    align-items: center;
+}
+
+/* Ensure inputs take full width of their grid cell */
+.setting-item.no-label .setting-item-control input {
+    width: 100%;
+}
+
+/* Style the trash button container */
+.setting-item.no-label .setting-item-control .clickable-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    opacity: 0.8;
+    transition: opacity 0.15s ease;
+}
+
+.setting-item.no-label .setting-item-control .clickable-icon:hover {
+    opacity: 1;
+    color: var(--text-error);
 }

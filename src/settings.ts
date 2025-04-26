@@ -21,17 +21,13 @@ interface JotItem {
 }
 
 export const DEFAULT_SETTINGS = {
-  relatedFiles: Array(5).fill(null).map((_, i) => ({
-    id: (i + 1).toString(),
-    label: '',
-    path: ''
-  })),
+  relatedFiles: [] as RelatedFile[],
   pathSettings: [{
     path: '',
     enabledCategories: ['backlinks', 'related-files', 'jots']
   }],
   jotItems: [] as JotItem[],
-  activeTab: 'related-files' as 'related-files' | 'footer-notes' | 'jots'
+  activeTab: 'related-files' as 'related-files' | 'footer-notes'
 };
 
 type PluginSettings = typeof DEFAULT_SETTINGS;
@@ -75,10 +71,10 @@ export class FootLinkerSettingTab extends PluginSettingTab {
       // Create tabs container
       const tabsContainer = containerEl.createEl('div', { cls: 'jots-settings-tabs' });
 
-      // Create tab buttons
-      const relatedFilesBtn = tabsContainer.createEl('div', {
+      // Create tab buttons - renamed Related Files to Sections
+      const sectionsBtn = tabsContainer.createEl('div', {
         cls: ['jots-settings-tab', this.plugin.settings.activeTab === 'related-files' ? 'is-active' : ''].join(' '),
-        text: 'Related Files'
+        text: 'Sections'
       });
 
       const footerNotesBtn = tabsContainer.createEl('div', {
@@ -86,22 +82,13 @@ export class FootLinkerSettingTab extends PluginSettingTab {
         text: 'Notes with Footers'
       });
 
-      const jotsBtn = tabsContainer.createEl('div', {
-        cls: ['jots-settings-tab', this.plugin.settings.activeTab === 'jots' ? 'is-active' : ''].join(' '),
-        text: 'Jots'
-      });
-
       // Create content containers with initial active state
-      const relatedFilesContent = containerEl.createEl('div', {
+      const sectionsContent = containerEl.createEl('div', {
         cls: ['jots-settings-content', this.plugin.settings.activeTab === 'related-files' ? 'is-active' : ''].join(' ')
       });
 
       const footerNotesContent = containerEl.createEl('div', {
         cls: ['jots-settings-content', this.plugin.settings.activeTab === 'footer-notes' ? 'is-active' : ''].join(' ')
-      });
-
-      const jotsContent = containerEl.createEl('div', {
-        cls: ['jots-settings-content', this.plugin.settings.activeTab === 'jots' ? 'is-active' : ''].join(' ')
       });
 
       // Add click handlers for tabs
@@ -110,9 +97,9 @@ export class FootLinkerSettingTab extends PluginSettingTab {
         activeBtn: HTMLElement,
         activeContent: HTMLElement
       ) => {
-        [relatedFilesBtn, footerNotesBtn, jotsBtn].forEach(btn =>
+        [sectionsBtn, footerNotesBtn].forEach(btn =>
           btn.removeClass('is-active'));
-        [relatedFilesContent, footerNotesContent, jotsContent].forEach(content =>
+        [sectionsContent, footerNotesContent].forEach(content =>
           content.removeClass('is-active'));
         activeBtn.addClass('is-active');
         activeContent.addClass('is-active');
@@ -120,64 +107,146 @@ export class FootLinkerSettingTab extends PluginSettingTab {
         await this.plugin.saveSettings();
       };
 
-      relatedFilesBtn.addEventListener('click', () =>
-        setActiveTab('related-files', relatedFilesBtn, relatedFilesContent));
+      sectionsBtn.addEventListener('click', () =>
+        setActiveTab('related-files', sectionsBtn, sectionsContent));
       footerNotesBtn.addEventListener('click', () =>
         setActiveTab('footer-notes', footerNotesBtn, footerNotesContent));
-      jotsBtn.addEventListener('click', () =>
-        setActiveTab('jots', jotsBtn, jotsContent));
 
       // Set initial active tab based on stored setting
       switch (this.plugin.settings.activeTab) {
         case 'footer-notes':
           setActiveTab('footer-notes', footerNotesBtn, footerNotesContent);
           break;
-        case 'jots':
-          setActiveTab('jots', jotsBtn, jotsContent);
-          break;
         default:
-          setActiveTab('related-files', relatedFilesBtn, relatedFilesContent);
+          setActiveTab('related-files', sectionsBtn, sectionsContent);
       }
 
       // Add content to tabs
-      this.displayRelatedFilesSettings(relatedFilesContent);
+      this.displayRelatedFilesSettings(sectionsContent);
       this.displayFooterNotesSettings(footerNotesContent);
-      this.displayJotsSettings(jotsContent);
     } catch (error) {
       console.error('Error in display:', error);
     }
   }
 
   displayRelatedFilesSettings(containerEl: HTMLElement) {
-    containerEl.createEl('h3', { text: 'Related Files' });
-    containerEl.createEl('p', { text: 'Configure up to 5 related file categories. Each category needs a label and a path.' });
+    containerEl.createEl('h3', { text: 'Date Related' });
+    containerEl.createEl('p', { text: 'Sections of files grouped by folder and related by date.' });
 
-    this.plugin.settings.relatedFiles.forEach((section: RelatedFile, index: number) => {
-      const sectionNum = index + 1;
+    // Create column headers container
+    const headerContainer = containerEl.createDiv({ cls: 'settings-columns-header' });
+    headerContainer.createSpan({ text: 'Header', cls: 'column-header' });
+    headerContainer.createSpan({ text: 'File Path', cls: 'column-header' });
 
-      new Setting(containerEl)
-        .setName(`Category ${sectionNum}`)
-        .setDesc(`Configure category ${sectionNum} label and path`)
-        .addText(text => text
-          .setPlaceholder('Enter category label')
+    // Existing Categories
+    if (this.plugin.settings.relatedFiles?.length > 0) {
+      this.plugin.settings.relatedFiles.forEach((section: RelatedFile, index: number) => {
+        const setting = new Setting(containerEl);
+        setting.settingEl.addClass('no-label');
+
+        setting.addText(text => text
+          .setPlaceholder('Enter header')
           .setValue(section.label)
           .onChange(async (value) => {
             this.plugin.settings.relatedFiles[index].label = value;
             await this.saveAndRefresh();
           }))
-        .addText(text => {
-          text
-            .setPlaceholder('Enter path')
-            .setValue(section.path);
+          .addText(text => {
+            text
+              .setPlaceholder('Enter path')
+              .setValue(section.path);
 
-          new FolderSuggest(this.app, text.inputEl);
+            new FolderSuggest(this.app, text.inputEl);
 
-          text.onChange(async (value) => {
-            this.plugin.settings.relatedFiles[index].path = value;
-            await this.saveAndRefresh();
+            text.onChange(async (value) => {
+              this.plugin.settings.relatedFiles[index].path = value;
+              await this.saveAndRefresh();
+            });
+          })
+          .addExtraButton(button => button
+            .setIcon('trash')
+            .setTooltip('Delete')
+            .onClick(async () => {
+              this.plugin.settings.relatedFiles.splice(index, 1);
+              await this.saveAndRefresh();
+              this.display();
+            }));
+      });
+    }
+
+    // Add Category button at bottom
+    new Setting(containerEl)
+      .addButton(button => button
+        .setButtonText('Add Category')
+        .onClick(async () => {
+          if (!this.plugin.settings.relatedFiles) {
+            this.plugin.settings.relatedFiles = [];
+          }
+          this.plugin.settings.relatedFiles.push({
+            id: String(Date.now()),
+            label: '',
+            path: ''
           });
-        });
-    });
+          await this.saveAndRefresh();
+          this.display();
+        }));
+
+    // Add Jots Settings section
+    containerEl.createEl('h3', { text: 'Jots Groupings' });
+    containerEl.createEl('p', { text: 'Sections of Jots from the current file, grouped by Prefix.' });
+
+    // Create column headers container for Jots
+    const jotsHeaderContainer = containerEl.createDiv({ cls: 'settings-columns-header' });
+    jotsHeaderContainer.createSpan({ text: 'Header', cls: 'column-header' });
+    jotsHeaderContainer.createSpan({ text: 'Prefix', cls: 'column-header' });
+
+    // Existing Jot Groups
+    if (this.plugin.settings.jotItems?.length > 0) {
+      this.plugin.settings.jotItems.forEach((jot: JotItem, index: number) => {
+        const setting = new Setting(containerEl);
+        setting.settingEl.addClass('no-label');
+
+        setting.addText(text => text
+          .setPlaceholder('Enter header')
+          .setValue(jot.label)
+          .onChange(async (value) => {
+            this.plugin.settings.jotItems[index].label = value;
+            await this.saveAndRefresh();
+          }))
+          .addText(text => text
+            .setPlaceholder('Task char')
+            .setValue(jot.taskChar)
+            .onChange(async (value) => {
+              this.plugin.settings.jotItems[index].taskChar = value;
+              await this.saveAndRefresh();
+            }))
+          .addExtraButton(button => button
+            .setIcon('trash')
+            .setTooltip('Delete')
+            .onClick(async () => {
+              this.plugin.settings.jotItems.splice(index, 1);
+              await this.saveAndRefresh();
+              this.display();
+            }));
+      });
+    }
+
+    // Add Group button moved to bottom
+    new Setting(containerEl)
+      .addButton(button => button
+        .setButtonText('Add Group')
+        .onClick(async () => {
+          if (!this.plugin.settings.jotItems) {
+            this.plugin.settings.jotItems = [];
+          }
+          this.plugin.settings.jotItems.push({
+            id: String(Date.now()),
+            label: '',
+            taskChar: ''
+          });
+          await this.saveAndRefresh();
+          this.display();
+        }));
   }
 
   displayFooterNotesSettings(containerEl: HTMLElement) {
@@ -251,62 +320,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
                   this.display();
                 }
               ).open();
-            }));
-      });
-    }
-  }
-
-  displayJotsSettings(containerEl: HTMLElement) {
-    containerEl.createEl('h3', { text: 'Jots Settings' });
-    containerEl.createEl('p', { text: 'Configure task groupings for the footer. Each group needs a label and a character that marks the tasks to be included.' });
-
-    // Add New Jot Group Button
-    new Setting(containerEl)
-      .setName('Add Jot Group')
-      .setDesc('Add a new task grouping')
-      .addButton(button => button
-        .setButtonText('Add Group')
-        .onClick(async () => {
-          if (!this.plugin.settings.jotItems) {
-            this.plugin.settings.jotItems = [];
-          }
-          this.plugin.settings.jotItems.push({
-            id: String(Date.now()),
-            label: '',
-            taskChar: ''
-          });
-          await this.saveAndRefresh();
-          this.display();
-        }));
-
-    // Existing Jot Groups
-    if (this.plugin.settings.jotItems?.length > 0) {
-      this.plugin.settings.jotItems.forEach((jot: JotItem, index: number) => {
-        const jotContainer = containerEl.createDiv('path-setting-container');
-
-        new Setting(jotContainer)
-          .setName(`Group ${index + 1}`)
-          .addText(text => text
-            .setPlaceholder('Enter group label')
-            .setValue(jot.label)
-            .onChange(async (value) => {
-              this.plugin.settings.jotItems[index].label = value;
-              await this.saveAndRefresh();
-            }))
-          .addText(text => text
-            .setPlaceholder('Task char')
-            .setValue(jot.taskChar)
-            .onChange(async (value) => {
-              this.plugin.settings.jotItems[index].taskChar = value;
-              await this.saveAndRefresh();
-            }))
-          .addExtraButton(button => button
-            .setIcon('cross')
-            .setTooltip('Delete')
-            .onClick(async () => {
-              this.plugin.settings.jotItems.splice(index, 1);
-              await this.saveAndRefresh();
-              this.display();
             }));
       });
     }

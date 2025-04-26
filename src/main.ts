@@ -27,7 +27,7 @@ interface PluginSettings {
   relatedFiles: RelatedFile[];
   pathSettings: PathSetting[];
   jotItems: JotItem[];
-  activeTab: 'related-files' | 'footer-notes' | 'jots';
+  activeTab: 'related-files' | 'footer-notes';
   excludedParentSelectors?: string[];
   excludedFolders?: string[];
   footerOrder?: number;
@@ -172,11 +172,7 @@ export default class FootLinkerPlugin extends Plugin {
       const loadedData = await this.loadData();
       // Create a new settings object with defaults
       const newSettings = {
-        relatedFiles: Array(5).fill(null).map((_, i) => ({
-          id: (i + 1).toString(),
-          label: '',
-          path: ''
-        })),
+        relatedFiles: [],
         pathSettings: [],
         jotItems: [],
         activeTab: 'related-files' as const,
@@ -187,14 +183,13 @@ export default class FootLinkerPlugin extends Plugin {
 
       // Only merge if we have data
       if (loadedData) {
-        // Merge only what exists
-        if (loadedData.relatedFiles) {
-          loadedData.relatedFiles.forEach((rf: RelatedFile, i: number) => {
-            if (i < 5) {
-              newSettings.relatedFiles[i].label = rf.label || '';
-              newSettings.relatedFiles[i].path = rf.path || '';
-            }
-          });
+        // Merge relatedFiles, preserving IDs
+        if (Array.isArray(loadedData.relatedFiles)) {
+          newSettings.relatedFiles = loadedData.relatedFiles.map((rf: any) => ({
+            id: rf.id || String(Date.now()),
+            label: rf.label || '',
+            path: rf.path || ''
+          }));
         }
 
         if (Array.isArray(loadedData.pathSettings)) {
