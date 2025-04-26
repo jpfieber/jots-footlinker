@@ -230,35 +230,77 @@
     margin-bottom: 8px;
 }
 
-/* Selection Tags */
+/* Selection Tags Container */
 .selected-items {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
     margin-top: 8px;
-    padding-left: 24px;
 }
 
+.selection-tag-list {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-height: 32px;
+    padding: 4px;
+    align-items: center;
+    overflow-x: auto;
+    white-space: nowrap;
+    width: 100%;
+}
+
+/* Hide scrollbar but keep functionality */
+.selection-tag-list::-webkit-scrollbar {
+    display: none;
+}
+
+.selection-tag-list {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* Selection Tags */
 .selection-tag {
     display: inline-flex;
     align-items: center;
+    white-space: nowrap;
     gap: 4px;
     padding: 2px 8px;
     background-color: var(--interactive-accent);
     color: var(--text-on-accent);
     border-radius: 4px;
     font-size: 0.75em;
-    /* Changed from 12px to 0.75em (12/16 = 0.75) */
+    user-select: none;
+    touch-action: none;
+    flex: 0 0 auto;
+    margin: 0;
 }
 
-.selection-tag .remove-button {
+.selection-tag.dragging {
+    opacity: 0.7;
+    transform: scale(1.02);
+    cursor: grabbing;
+}
+
+.selection-tag-grip {
+    cursor: grab;
+    padding-right: 4px;
+    opacity: 0.7;
+    font-size: 0.9em;
+    line-height: 1;
+}
+
+.selection-tag-label {
+    pointer-events: none;
+}
+
+.remove-button {
+    margin-left: 4px;
     cursor: pointer;
-    font-weight: bold;
-    padding: 0 2px;
+    opacity: 0.7;
+    transition: opacity 0.15s ease;
 }
 
-.selection-tag .remove-button:hover {
-    opacity: 0.8;
+.remove-button:hover {
+    opacity: 1;
 }
 
 /* Folder Suggestions */

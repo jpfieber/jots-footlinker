@@ -43,8 +43,15 @@ function addJournalLinks(
     const [year, month, day] = grabparts;
     const newdate = year + month + day;
 
-    enabledCategories.forEach(category => {
+    // Process categories in chunks to prevent UI blocking
+    let currentCategory = 0;
+    const processNextCategory = () => {
+        if (currentCategory >= enabledCategories.length) return;
+
+        const category = enabledCategories[currentCategory];
         const sectionPath = `${category.path}/${year}/${year}-${month}`;
+
+        // Use cached files instead of doing a full vault search
         const sectionFiles = app.vault.getFiles()
             .filter((f: TFile) => f.path.includes(sectionPath) && f.name.includes(newdate))
             .sort((a: TFile, b: TFile) => a.name.localeCompare(b.name))
@@ -53,7 +60,14 @@ function addJournalLinks(
         if (sectionFiles.length > 0) {
             createSectionElement(footLinker, category, sectionFiles, file, setupLinkBehavior, isEditMode);
         }
-    });
+
+        currentCategory++;
+        if (currentCategory < enabledCategories.length) {
+            requestAnimationFrame(processNextCategory);
+        }
+    };
+
+    processNextCategory();
 }
 
 function addRegularLinks(
@@ -64,29 +78,45 @@ function addRegularLinks(
     setupLinkBehavior: (link: HTMLElement, linkPath: string, file: TFile) => void,
     isEditMode: () => boolean
 ): void {
-    enabledCategories.forEach(category => {
-        const activeFile = app.workspace.getActiveFile();
-        if (!activeFile) return;
+    const activeFile = app.workspace.getActiveFile();
+    if (!activeFile) return;
 
-        app.vault.read(activeFile).then((fileContent: string) => {
-            const cache = app.metadataCache.getFileCache(activeFile);
-            const frontMatter = cache?.frontmatter;
-            const aliases = Array.isArray(frontMatter?.aliases)
-                ? frontMatter.aliases.map((alias: string) => alias.replace(/^- /, '').trim())
-                : [];
+    // Get cache once instead of per category
+    const cache = app.metadataCache.getFileCache(activeFile);
+    const frontMatter = cache?.frontmatter;
+    const aliases = frontMatter?.aliases
+        ? frontMatter.aliases.map((alias: string) => alias.replace(/^- /, '').trim())
+        : [];
 
-            const sectionFiles = app.vault.getFiles()
-                .filter((f: TFile) =>
-                    f.path.includes(category.path) &&
-                    (f.name.includes(activeFile.basename) || aliasesContains(f.name, aliases)))
-                .sort((a: TFile, b: TFile) => b.name.localeCompare(a.name))
-                .map((f: TFile) => f.path);
+    // Get all files once and cache the result
+    const allFiles = app.vault.getFiles();
 
-            if (sectionFiles.length > 0) {
-                createSectionElement(footLinker, category, sectionFiles, activeFile, setupLinkBehavior, isEditMode);
-            }
-        });
-    });
+    // Process categories in chunks
+    let currentCategory = 0;
+    const processNextCategory = () => {
+        if (currentCategory >= enabledCategories.length) return;
+
+        const category = enabledCategories[currentCategory];
+
+        // Filter files for this category
+        const sectionFiles = allFiles
+            .filter((f: TFile) =>
+                f.path.includes(category.path) &&
+                (f.name.includes(activeFile.basename) || aliasesContains(f.name, aliases)))
+            .sort((a: TFile, b: TFile) => b.name.localeCompare(a.name))
+            .map((f: TFile) => f.path);
+
+        if (sectionFiles.length > 0) {
+            createSectionElement(footLinker, category, sectionFiles, activeFile, setupLinkBehavior, isEditMode);
+        }
+
+        currentCategory++;
+        if (currentCategory < enabledCategories.length) {
+            requestAnimationFrame(processNextCategory);
+        }
+    };
+
+    processNextCategory();
 }
 
 function createSectionElement(
@@ -98,20 +128,41 @@ function createSectionElement(
     isEditMode: () => boolean
 ): void {
     const sectionDiv = footLinker.createDiv({ cls: `footlinker--${category.id}` });
-
-    // Add the H2 header with the category label
     sectionDiv.createEl('h2', { text: category.label });
-
     const sectionUl = sectionDiv.createEl("ul");
-    sectionFiles.forEach(linkPath => {
-        const li = sectionUl.createEl("li");
-        const link = li.createEl("a", {
-            href: linkPath,
-            text: linkPath.split("/").pop() || '',
-            cls: isEditMode() ? "cm-hmd-internal-link cm-underline" : "internal-link"
-        });
-        link.dataset.href = linkPath;
-        link.dataset.sourcePath = file.path;
-        setupLinkBehavior(link, linkPath, file);
-    });
+
+    // Process files in chunks
+    const chunkSize = 20;
+    let currentChunk = 0;
+    const totalChunks = Math.ceil(sectionFiles.length / chunkSize);
+
+    const processChunk = () => {
+        const start = currentChunk * chunkSize;
+        const end = Math.min(start + chunkSize, sectionFiles.length);
+
+        for (let i = start; i < end; i++) {
+            const linkPath = sectionFiles[i];
+            const li = sectionUl.createEl("li");
+            const link = li.createEl("a", {
+                href: linkPath,
+                text: linkPath.split("/").pop() || '',
+                cls: isEditMode() ? "cm-hmd-internal-link cm-underline" : "internal-link"
+            });
+            link.dataset.href = linkPath;
+            link.dataset.sourcePath = file.path;
+            setupLinkBehavior(link, linkPath, file);
+        }
+
+        currentChunk++;
+        if (currentChunk < totalChunks) {
+            requestAnimationFrame(processChunk);
+        }
+    };
+
+    // Start processing if there are files
+    if (sectionFiles.length > 0) {
+        processChunk();
+    } else {
+        sectionDiv.remove();
+    }
 }

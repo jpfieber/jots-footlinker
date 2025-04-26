@@ -23,8 +23,9 @@ export class FolderSuggest extends TextInputSuggest<TFolder> {
         return folders;
     }
 
-    renderSuggestion(file: TFolder, el: HTMLElement): void {
-        el.setText(file.path);
+    renderSuggestion(file: TFolder, el: HTMLElement): HTMLDivElement {
+        const suggestionEl = el.createDiv({ text: file.path });
+        return suggestionEl;
     }
 
     selectSuggestion(file: TFolder): void {

@@ -146,47 +146,89 @@ export function addJots(
 ) {
     if (!file || !jotItems.length) return;
 
-    app.vault.read(file).then((content: string) => {
+    function processContent(content: string) {
         const lines = content.split('\n');
         const jotGroups = new Map<string, TaskItem[]>();
 
         // Initialize groups for each jot item
         jotItems.forEach(item => jotGroups.set(item.label, []));
 
-        // Process each line
-        lines.forEach(line => {
-            const trimmedLine = line.replace(/^>+\s*/, ''); // Remove callout markers
-            jotItems.forEach(item => {
-                // Split the taskChar string by commas and trim each character
-                const taskChars = item.taskChar.split(',').map(char => char.trim());
-                const taskCharPattern = taskChars.map(char => `\\[${char}\\]`).join('|');
-                const taskRegex = new RegExp(`^\\s*-\\s*(${taskCharPattern})\\s*`);
+        // Process in chunks to prevent blocking
+        const chunkSize = 100;
+        let currentChunk = 0;
 
-                if (taskRegex.test(trimmedLine)) {
-                    const taskText = trimmedLine.replace(/^\s*-\s*\[.\]\s*/, ''); // Remove the task marker pattern
-                    const time = extractTime(taskText);
-                    const prefix = taskText.trim()[0] || '';
-                    const tasks = jotGroups.get(item.label) || [];
-                    tasks.push({ text: taskText, time, prefix });
-                    jotGroups.set(item.label, tasks);
-                }
-            });
-        });
+        const processChunk = () => {
+            const start = currentChunk * chunkSize;
+            const end = Math.min(start + chunkSize, lines.length);
 
-        // Create sections for non-empty groups
-        jotGroups.forEach((tasks, label) => {
-            if (tasks.length > 0) {
-                const sectionDiv = footLinker.createDiv({ cls: 'footlinker--jots' });
-                sectionDiv.createEl('h2', { text: label });
+            for (let i = start; i < end; i++) {
+                const line = lines[i];
+                const trimmedLine = line.replace(/^>+\s*/, '');
 
-                const tasksList = sectionDiv.createEl('ul');
-                // Sort tasks before rendering
-                const sortedTasks = sortTasks(tasks);
-                sortedTasks.forEach(task => {
-                    const li = tasksList.createEl('li');
-                    formatTaskText(task.text, li, file, app, isEditMode);
+                jotItems.forEach(item => {
+                    const taskChars = item.taskChar.split(',').map(char => char.trim());
+                    const taskCharPattern = taskChars.map(char => `\\[${char}\\]`).join('|');
+                    const taskRegex = new RegExp(`^\\s*-\\s*(${taskCharPattern})\\s*`);
+
+                    if (taskRegex.test(trimmedLine)) {
+                        const taskText = trimmedLine.replace(/^\s*-\s*\[.\]\s*/, '');
+                        const time = extractTime(taskText);
+                        const prefix = taskText.trim()[0] || '';
+                        const tasks = jotGroups.get(item.label) || [];
+                        tasks.push({ text: taskText, time, prefix });
+                        jotGroups.set(item.label, tasks);
+                    }
                 });
             }
-        });
-    });
+
+            // Process next chunk or render if done
+            currentChunk++;
+            if (currentChunk * chunkSize < lines.length) {
+                setTimeout(processChunk, 0); // Use microtask for better performance
+            } else {
+                renderJotGroups();
+            }
+        };
+
+        const renderJotGroups = () => {
+            jotGroups.forEach((tasks, label) => {
+                if (tasks.length > 0) {
+                    const sectionDiv = footLinker.createDiv({ cls: 'footlinker--jots' });
+                    sectionDiv.createEl('h2', { text: label });
+
+                    const tasksList = sectionDiv.createEl('ul');
+                    const sortedTasks = sortTasks(tasks);
+                    sortedTasks.forEach(task => {
+                        const li = tasksList.createEl('li');
+                        formatTaskText(task.text, li, file, app, isEditMode);
+                    });
+                }
+            });
+
+            // Remove hidden class after rendering
+            footLinker.removeClass('footlinker--hidden');
+        };
+
+        // Start processing
+        processChunk();
+    }
+
+    // Get cached content if available, otherwise read file
+    const cache = app.metadataCache.getFileCache(file);
+    const sections = cache?.sections;
+    let content = '';
+
+    if (sections) {
+        content = sections.map(section => {
+            const start = section.position.start.offset;
+            const end = section.position.end.offset;
+            return app.vault.cachedRead(file).then(fileContent => fileContent.slice(start, end));
+        }).join('\n');
+    }
+
+    if (content) {
+        processContent(content);
+    } else {
+        app.vault.cachedRead(file).then(processContent);
+    }
 }

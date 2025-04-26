@@ -23,27 +23,49 @@ export function addBacklinks(
     if (!backlinksData?.data?.size) return;
 
     const backlinksDiv = footLinker.createDiv({ cls: "footlinker--backlinks" });
-
-    // Add the H2 header for backlinks
     backlinksDiv.createEl('h2', { text: 'Backlinks' });
-
     const backlinksUl = backlinksDiv.createEl("ul");
 
-    const links = Array.from(backlinksData.data.keys()) as string[];
-    links
+    // Get links and sort them once
+    const links = Array.from(backlinksData.data.keys())
         .filter(linkPath => linkPath.endsWith(".md"))
-        .sort((a, b) => a.localeCompare(b))
-        .forEach(linkPath => {
+        .sort((a, b) => a.localeCompare(b));
+
+    // Process links in chunks to prevent UI blocking
+    const chunkSize = 20;
+    let currentChunk = 0;
+    const totalChunks = Math.ceil(links.length / chunkSize);
+
+    const processChunk = () => {
+        const start = currentChunk * chunkSize;
+        const end = Math.min(start + chunkSize, links.length);
+
+        for (let i = start; i < end; i++) {
+            const linkPath = links[i];
             const li = backlinksUl.createEl("li");
+            const fileName = linkPath.split("/").pop()?.slice(0, -3) || '';
+
             const link = li.createEl("a", {
                 href: linkPath,
-                text: linkPath.split("/").pop()?.slice(0, -3) || '',
+                text: fileName,
                 cls: isEditMode() ? "cm-hmd-internal-link cm-underline" : "internal-link",
             });
+
             link.dataset.href = linkPath;
             link.dataset.sourcePath = file.path;
             setupLinkBehavior(link, linkPath, file);
-        });
+        }
 
-    if (!backlinksUl.childElementCount) backlinksDiv.remove();
+        currentChunk++;
+        if (currentChunk < totalChunks) {
+            requestAnimationFrame(processChunk); // Use RAF for smoother rendering
+        }
+    };
+
+    // Start processing if there are links
+    if (links.length > 0) {
+        processChunk();
+    } else {
+        backlinksDiv.remove();
+    }
 }

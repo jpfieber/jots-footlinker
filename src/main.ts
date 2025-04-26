@@ -1,134 +1,254 @@
-import { Plugin, PluginSettingTab, debounce, MarkdownView } from 'obsidian';
+import { Plugin, PluginSettingTab, debounce, MarkdownView, TFile, App, MetadataCache } from 'obsidian';
 import { DEFAULT_SETTINGS, FootLinkerSettingTab } from './settings';
 import { formatDate } from './utils/formatDate';
 import { addBacklinks } from './sections/backlinks';
 import { addFootLinks } from './sections/relatedfiles';
 import { addJots } from './sections/jots';
 
-function aliasesContains(fileName, aliases) {
-  return aliases.some(alias => fileName.includes(alias));
+// Define interfaces for the plugin settings
+interface RelatedFile {
+  id: string;
+  label: string;
+  path: string;
+}
+
+interface PathSetting {
+  path: string;
+  enabledCategories: string[];
+  showBacklinks: boolean;
+}
+
+interface JotItem {
+  id: string;
+  label: string;
+  taskChar: string;
+}
+
+interface PluginSettings {
+  relatedFiles: RelatedFile[];
+  pathSettings: PathSetting[];
+  jotItems: JotItem[];
+  activeTab: 'related-files' | 'footer-notes' | 'jots';
+  excludedParentSelectors?: string[];
+  excludedFolders?: string[];
+  footerOrder?: number;
+}
+
+// Extend App type to include Obsidian's MetadataCache with backlinks
+interface ObsidianAppWithBacklinks extends App {
+  metadataCache: MetadataCache & {
+    getBacklinksForFile(file: TFile): {
+      data: Map<string, any>;
+    };
+  };
+}
+
+function aliasesContains(fileName: string, aliases: string[]): boolean {
+  return aliases.some((alias: string) => fileName.includes(alias));
 }
 
 export default class FootLinkerPlugin extends Plugin {
-  settings: any;
-  private immediateUpdateFootLinker: () => Promise<void>;
-  private debouncedUpdateFootLinker: () => void;
+  settings!: PluginSettings;
+  private immediateUpdateFootLinker: () => Promise<void> = async () => { };
+  private debouncedUpdateFootLinker: () => void = () => { };
   private contentObserver: MutationObserver | null = null;
   private containerObserver: MutationObserver | null = null;
+  private settingTab: FootLinkerSettingTab | null = null;
 
   async onload() {
-    console.log("Loading FootLinker plugin...");
+    console.log("[FootLinker] Starting plugin load...");
 
-    // Initialize update functions FIRST
-    const updateFootLinkerCallback = async () => {
-      try {
-        await this.updateFootLinker();
-      } catch (error) {
-        console.error("Error in updateFootLinkerCallback:", error);
+    try {
+      console.log("[FootLinker] Loading settings...");
+      await this.loadSettings();
+
+      if (!this.settings) {
+        console.error("[FootLinker] Settings failed to initialize!");
+        throw new Error("Failed to initialize plugin settings");
       }
-    };
+      console.log("[FootLinker] Settings loaded successfully:", this.settings);
 
-    // Initialize these before loading settings
-    this.immediateUpdateFootLinker = updateFootLinkerCallback;
-    this.debouncedUpdateFootLinker = debounce(updateFootLinkerCallback, 1000, true);
+      console.log("[FootLinker] Initializing update functions...");
+      const updateFootLinkerCallback = async () => {
+        try {
+          await this.updateFootLinker();
+        } catch (error) {
+          console.error("[FootLinker] Error in updateFootLinkerCallback:", error);
+        }
+      };
 
-    // Then load settings
-    await this.loadSettings();
+      this.immediateUpdateFootLinker = updateFootLinkerCallback;
+      this.debouncedUpdateFootLinker = debounce(updateFootLinkerCallback, 1000, true);
 
-    // Add settings tab
-    this.addSettingTab(new FootLinkerSettingTab(this.app, this));
+      console.log("[FootLinker] Creating settings tab...");
+      this.settingTab = new FootLinkerSettingTab(this.app, this);
+      this.addSettingTab(this.settingTab);
 
-    // Register event handlers
-    this.registerEventHandlers();
+      console.log("[FootLinker] Registering event handlers...");
+      this.registerEventHandlers();
 
-    // Update footer after everything is ready
-    this.app.workspace.onLayoutReady(() => this.immediateUpdateFootLinker());
+      console.log("[FootLinker] Waiting for layout ready...");
+      this.app.workspace.onLayoutReady(async () => {
+        try {
+          console.log("[FootLinker] Loading stylesheet...");
+          await this.loadStylesheet();
+
+          console.log("[FootLinker] Performing initial update...");
+          await this.immediateUpdateFootLinker();
+
+          console.log("[FootLinker] Initial setup complete!");
+        } catch (error) {
+          console.error("[FootLinker] Error during layout ready:", error);
+        }
+      });
+
+    } catch (error) {
+      console.error("[FootLinker] Critical error during plugin load:", error);
+    }
   }
 
-  async injectCSSFromFile() {
-    try {
-      // Use plugin directory path instead of dist/
-      const cssPath = `${this.app.vault.configDir}/plugins/${this.manifest.id}/styles.css`;
-      const css = await this.app.vault.adapter.read(cssPath);
+  onunload() {
+    console.log("Unloading FootLinker plugin...");
+    this.disconnectObservers();
+    this.unloadStylesheet();
+    this.settingTab = null;
+  }
 
-      // Remove any existing style element for styles.css
+  private async loadStylesheet() {
+    console.log("[FootLinker] Attempting to load stylesheet...");
+    try {
+      // Try all possible paths for the CSS file
+      const possiblePaths = [
+        `${this.app.vault.configDir}/plugins/${this.manifest.id}/styles.css`,
+        `${this.app.vault.configDir}/plugins/${this.manifest.id}/dist/styles.css`,
+        `${this.app.vault.configDir}/plugins/${this.manifest.id}/src/styles/styles.css`
+      ];
+
+      console.log("[FootLinker] Searching for stylesheet in:", possiblePaths);
+
+      let css = '';
+      let foundPath = '';
+      for (const path of possiblePaths) {
+        try {
+          css = await this.app.vault.adapter.read(path);
+          foundPath = path;
+          console.log("[FootLinker] Found stylesheet at:", path);
+          break;
+        } catch (e) {
+          console.log("[FootLinker] No stylesheet at:", path);
+          continue;
+        }
+      }
+
+      if (!css) {
+        console.error("[FootLinker] Could not find styles.css in any expected location");
+        // Try to load embedded default styles as fallback
+        css = DEFAULT_STYLES;
+        console.log("[FootLinker] Using default embedded styles as fallback");
+      }
+
       const existingStyle = document.getElementById("footlinker-styles-css");
       if (existingStyle) {
+        console.log("[FootLinker] Removing existing stylesheet");
         existingStyle.remove();
       }
 
-      // Create a new style element for styles.css
       const style = document.createElement("style");
       style.id = "footlinker-styles-css";
       style.textContent = css;
-
-      // Append the style element to the document head
       document.head.appendChild(style);
+      console.log("[FootLinker] Successfully loaded and applied stylesheet");
+
     } catch (error) {
-      console.error("Error injecting CSS from file:", error);
+      console.error("[FootLinker] Critical error loading stylesheet:", error);
+      // Don't throw - we can still function without styles
     }
   }
 
-  removeCSS() {
-    // Remove the dynamically injected CSS
-    const dynamicStyle = document.getElementById("footlinker-dynamic-css");
-    if (dynamicStyle) {
-      dynamicStyle.remove();
-    }
-
-    // Remove the CSS injected from styles.css
-    const fileStyle = document.getElementById("footlinker-styles-css");
-    if (fileStyle) {
-      fileStyle.remove();
+  private unloadStylesheet() {
+    const style = document.getElementById("footlinker-styles-css");
+    if (style) {
+      style.remove();
     }
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-
-    // Initialize settings if they don't exist
-    if (!this.settings.relatedFiles || this.settings.relatedFiles.length !== 5) {
-      this.settings.relatedFiles = Array(5).fill().map((_, i) => ({
-        id: (i + 1).toString(),
-        label: '',
-        path: ''
-      }));
-    }
-
-    if (!Array.isArray(this.settings.pathSettings)) {
-      this.settings.pathSettings = [];
-    }
-
-    if (!this.settings.jotItems) {
-      this.settings.jotItems = [];
-    }
-
-    if (!this.settings.tasksSettings) {
-      this.settings.tasksSettings = {
-        headerName: 'Tasks',
-        query: ''
+    try {
+      const loadedData = await this.loadData();
+      // Create a new settings object with defaults
+      const newSettings = {
+        relatedFiles: Array(5).fill(null).map((_, i) => ({
+          id: (i + 1).toString(),
+          label: '',
+          path: ''
+        })),
+        pathSettings: [],
+        jotItems: [],
+        activeTab: 'related-files' as const,
+        excludedParentSelectors: [],
+        excludedFolders: [],
+        footerOrder: 100
       };
-    }
 
-    await this.saveSettings();
-    console.log("Settings loaded:", this.settings);
+      // Only merge if we have data
+      if (loadedData) {
+        // Merge only what exists
+        if (loadedData.relatedFiles) {
+          loadedData.relatedFiles.forEach((rf: RelatedFile, i: number) => {
+            if (i < 5) {
+              newSettings.relatedFiles[i].label = rf.label || '';
+              newSettings.relatedFiles[i].path = rf.path || '';
+            }
+          });
+        }
+
+        if (Array.isArray(loadedData.pathSettings)) {
+          newSettings.pathSettings = loadedData.pathSettings;
+        }
+        if (Array.isArray(loadedData.jotItems)) {
+          newSettings.jotItems = loadedData.jotItems;
+        }
+        if (loadedData.activeTab) {
+          newSettings.activeTab = loadedData.activeTab;
+        }
+        if (Array.isArray(loadedData.excludedParentSelectors)) {
+          newSettings.excludedParentSelectors = loadedData.excludedParentSelectors;
+        }
+        if (Array.isArray(loadedData.excludedFolders)) {
+          newSettings.excludedFolders = loadedData.excludedFolders;
+        }
+        if (typeof loadedData.footerOrder === 'number') {
+          newSettings.footerOrder = loadedData.footerOrder;
+        }
+      }
+
+      this.settings = newSettings;
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      this.settings = DEFAULT_SETTINGS;
+    }
   }
 
   async saveSettings() {
-    // Ensure sectionSettings exists before saving
-    if (!this.settings.sectionSettings) {
-      this.settings.sectionSettings = {};
+    try {
+      // Save settings
+      await this.saveData(this.settings);
+
+      // Instead of removing and recreating all footers,
+      // just update the active one
+      const activeLeaf = this.app.workspace.activeLeaf;
+      if (activeLeaf?.view instanceof MarkdownView) {
+        await this.updateFootLinker();
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
     }
-    await this.saveData(this.settings);
-    // Refresh footers after settings change
-    await this.removeExistingFooters();
-    await this.immediateUpdateFootLinker();
   }
 
   registerEventHandlers() {
     // A single, debounced handler for all content changes
     const handleContentChange = () => {
-      if (this.isEditMode()) {
+      if (this.isEditMode(null)) {  // Pass null explicitly
         this.debouncedUpdateFootLinker();
       } else {
         this.immediateUpdateFootLinker();
@@ -158,7 +278,7 @@ export default class FootLinkerPlugin extends Plugin {
     }
   }
 
-  async addFootLinker(view) {
+  async addFootLinker(view: MarkdownView) {
     try {
       const file = view.file;
       if (!file) {
@@ -172,17 +292,11 @@ export default class FootLinkerPlugin extends Plugin {
         return;
       }
 
-      // Always disconnect observers before any DOM operations
       this.disconnectObservers();
-
-      // Remove any existing footers and wait for the animation to complete
       await this.removeExistingFootLinker(view.contentEl);
 
       const footLinker = await this.createFootLinker(file);
-
-      // Double check no footers exist before adding the new one
-      container.querySelectorAll(".footlinker").forEach(el => el.remove());
-
+      container.querySelectorAll(".footlinker").forEach((el: Element) => el.remove());
       container.appendChild(footLinker);
       this.observeContainer(container);
     } catch (error) {
@@ -190,7 +304,7 @@ export default class FootLinkerPlugin extends Plugin {
     }
   }
 
-  async createFootLinker(file) {
+  async createFootLinker(file: TFile) {
     const footLinker = createDiv({ cls: "footlinker footlinker--hidden" });
 
     // Set CSS custom properties for ordering using the setting
@@ -202,56 +316,76 @@ export default class FootLinkerPlugin extends Plugin {
     const pathSetting = this.findMatchingPathSetting(file.path);
 
     if (pathSetting?.showBacklinks) {
-      addBacklinks(footLinker, file, this.app, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
+      addBacklinks(
+        footLinker,
+        file,
+        this.app as unknown as ObsidianAppWithBacklinks,  // Safe cast since we know Obsidian has this API
+        this.setupLinkBehavior.bind(this),
+        () => this.isEditMode(null)  // Create a parameterless function
+      );
     }
 
     // Add jots section if there are any configured jot items
     if (this.settings.jotItems?.length > 0) {
-      addJots(footLinker, file, this.app, this.settings.jotItems, this.isEditMode.bind(this));
+      addJots(
+        footLinker,
+        file,
+        this.app,
+        this.settings.jotItems,
+        () => this.isEditMode(null)  // Create a parameterless function
+      );
     }
 
     if (pathSetting?.enabledCategories?.length) {
       const enabledCategories = pathSetting.enabledCategories
         .map(id => this.settings.relatedFiles.find(rf => rf.id === id))
-        .filter(category => category && category.label && category.path);
+        .filter((category): category is RelatedFile =>
+          category !== undefined && !!category.label && !!category.path);
 
-      addFootLinks(footLinker, file, this.app, enabledCategories, this.setupLinkBehavior.bind(this), this.isEditMode.bind(this));
+      addFootLinks(
+        footLinker,
+        file,
+        this.app,
+        enabledCategories,
+        this.setupLinkBehavior.bind(this),
+        () => this.isEditMode(null)  // Create a parameterless function
+      );
     }
 
     setTimeout(() => footLinker.removeClass("footlinker--hidden"), 10);
     return footLinker;
   }
 
-  getContainer(view) {
+  getContainer(view: MarkdownView): HTMLElement | null {
     const content = view.contentEl;
     if (this.isPreviewMode(view)) {
       return Array.from(content.querySelectorAll(".markdown-preview-section")).find(
-        (section) => !section.closest(".internal-embed")
-      );
+        (section: Element) => !section.closest(".internal-embed")
+      ) as HTMLElement || null;
     } else if (this.isEditMode(view)) {
       return content.querySelector(".cm-sizer");
     }
     return null;
   }
 
-  isPreviewMode(view) {
-    return view.getMode?.() === "preview" || view.mode === "preview";
+  isPreviewMode(view: MarkdownView | null): boolean {
+    return view?.getMode?.() === "preview" || false;  // Remove mode check
   }
 
-  isEditMode(view) {
+  isEditMode(view: MarkdownView | null): boolean {
     const activeView = view || this.app.workspace.getActiveViewOfType(MarkdownView);
-    return activeView?.getMode?.() === "source" || activeView?.mode === "source";
+    return activeView?.getMode?.() === "source" || false;  // Remove mode check
   }
 
-  isExcludedBySelector(container) {
-    return this.settings.excludedParentSelectors?.some((selector) => {
+  isExcludedBySelector(container: HTMLElement): boolean {
+    return this.settings.excludedParentSelectors?.some((selector: string) => {
       try {
-        return container.matches(selector) || container.querySelector(selector);
+        return container.matches(selector) || !!container.querySelector(selector);
       } catch (e) {
         console.error(`Invalid selector in settings: ${selector}`);
         return false;
       }
-    });
+    }) || false;
   }
 
   async removeExistingFooters() {
@@ -265,9 +399,8 @@ export default class FootLinkerPlugin extends Plugin {
     }));
   }
 
-  removeExistingFootLinker(container) {
-    return new Promise((resolve) => {
-      // Disconnect any existing observers first
+  removeExistingFootLinker(container: HTMLElement): Promise<void> {
+    return new Promise<void>((resolve) => {
       this.disconnectObservers();
 
       const footers = container.querySelectorAll(".footlinker");
@@ -278,8 +411,7 @@ export default class FootLinkerPlugin extends Plugin {
 
       let remainingFooters = footers.length;
 
-      // Remove all footlinker elements with fade animation
-      footers.forEach((el) => {
+      footers.forEach((el: Element) => {
         el.addClass("footlinker--hidden");
         setTimeout(() => {
           el.remove();
@@ -297,9 +429,8 @@ export default class FootLinkerPlugin extends Plugin {
     this.containerObserver?.disconnect();
   }
 
-  observeContainer(container) {
-    // Add a rate limit to prevent rapid successive updates
-    let updateTimeout = null;
+  observeContainer(container: HTMLElement): void {
+    let updateTimeout: NodeJS.Timeout | null = null;
     const UPDATE_DELAY = 1000; // 1 second minimum between updates
 
     this.containerObserver = new MutationObserver(() => {
@@ -327,7 +458,7 @@ export default class FootLinkerPlugin extends Plugin {
     });
   }
 
-  findMostSpecificPathPattern(filePath) {
+  findMostSpecificPathPattern(filePath: string) {
     const normalizedFilePath = filePath.replace(/\/+/g, '/').trim();
     const patterns = Object.keys(this.settings.pathSettings || {});
 
@@ -352,117 +483,38 @@ export default class FootLinkerPlugin extends Plugin {
     });
   }
 
-  getSectionPath(sectionId, pathPattern) {
-    const pathSettings = this.settings.pathSettings[pathPattern];
-    // Check if there's a custom path for this section in the path settings
-    if (pathSettings?.sectionPaths?.[sectionId]) {
-      return pathSettings.sectionPaths[sectionId];
-    }
-    // Otherwise use the default path from availableSections
-    const section = this.settings.availableSections.find(s => s.id === sectionId);
-    return section?.defaultPath;
-  }
-
-  findMatchingPathSetting(filePath) {
-    if (!this.settings.pathSettings) return null;
+  findMatchingPathSetting(filePath: string): PathSetting | undefined {
+    if (!this.settings.pathSettings) return undefined;
 
     // Find the most specific (longest) matching path
     return this.settings.pathSettings
-      .filter(ps => filePath.startsWith(ps.path))
-      .sort((a, b) => b.path.length - a.path.length)[0];
+      .filter((ps: PathSetting) => filePath.startsWith(ps.path))
+      .sort((a: PathSetting, b: PathSetting) => b.path.length - a.path.length)[0];
   }
 
-  setupLinkBehavior(link, linkPath, file) {
-    link.addEventListener("click", (event) => {
+  setupLinkBehavior(link: HTMLElement, linkPath: string, file: TFile): void {
+    link.addEventListener("click", (event: MouseEvent) => {
       event.preventDefault();
       this.app.workspace.openLinkText(linkPath, file.path);
     });
   }
 
-  async generateFooter(file) {
-    const footer = document.createElement('div');
-    footer.classList.add('foot-links');
-
-    // Get active sections for this file path
-    const pathSettings = this.getPathSettings(file.path);
-    if (!pathSettings || !pathSettings.enabled) {
-      return footer;
-    }
-
-    const activeSections = pathSettings.sections;
-
-    // Generate related files section
-    const relatedLinks = await this.getRelatedLinks(file, activeSections);
-    if (relatedLinks && relatedLinks.childNodes.length > 0) {
-      footer.appendChild(relatedLinks);
-    }
-
-    // ...existing code for dates and backlinks...
-
-    return footer;
-  }
-
-  async getRelatedLinks(file, activeSections) {
-    const container = document.createElement('div');
-    container.classList.add('related-links');
-
-    const allFiles = this.app.vault.getFiles();
-    let hasContent = false;
-
-    // Process each active section
-    for (const sectionId of activeSections) {
-      const section = this.settings.relatedFiles.find(s => s.id === sectionId);
-      if (!section || !section.label || !section.path) continue;
-
-      const sectionFiles = allFiles.filter(f =>
-        f.path.startsWith(section.path) &&
-        f.path !== file.path &&
-        !this.settings.excludedFolders.some(folder => f.path.startsWith(folder))
-      );
-
-      if (sectionFiles.length > 0) {
-        hasContent = true;
-        const sectionDiv = document.createElement('div');
-        sectionDiv.classList.add('related-section');
-
-        const header = document.createElement('div');
-        header.classList.add('related-header');
-        header.textContent = section.label;
-        sectionDiv.appendChild(header);
-
-        const linkList = document.createElement('div');
-        linkList.classList.add('related-list');
-
-        sectionFiles.forEach(relatedFile => {
-          const link = this.createFileLink(relatedFile);
-          linkList.appendChild(link);
-        });
-
-        sectionDiv.appendChild(linkList);
-        container.appendChild(sectionDiv);
-      }
-    }
-
-    return hasContent ? container : null;
-  }
-
-  async onunload() {
-    console.log("Unloading FootLinker plugin...");
-    // First disconnect all observers
-    this.disconnectObservers();
-
-    // Then remove all footers and wait for them to be cleaned up
-    await Promise.all(
-      this.app.workspace.getLeavesOfType("markdown")
-        .map(leaf => {
-          if (leaf.view instanceof MarkdownView) {
-            return this.removeExistingFootLinker(leaf.view.contentEl);
-          }
-          return Promise.resolve();
-        })
-    );
-
-    // Finally remove CSS
-    this.removeCSS();
-  }
+  // Remove unused methods
+  getSectionPath = undefined;
+  generateFooter = undefined;
+  getRelatedLinks = undefined;
 }
+
+// Default minimal styles to ensure basic functionality
+const DEFAULT_STYLES = `
+.footlinker {
+    margin: 30px 0 20px;
+    padding-top: 10px;
+    opacity: 1;
+    transition: opacity 600ms ease-in-out;
+}
+.footlinker--hidden { opacity: 0; }
+.footlinker--dashed-line {
+    border-top: 1px dashed var(--text-accent);
+}
+`;
