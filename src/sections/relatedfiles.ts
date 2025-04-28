@@ -84,9 +84,19 @@ function addRegularLinks(
     // Get cache once instead of per category
     const cache = app.metadataCache.getFileCache(activeFile);
     const frontMatter = cache?.frontmatter;
-    const aliases = frontMatter?.aliases
-        ? frontMatter.aliases.map((alias: string) => alias.replace(/^- /, '').trim())
-        : [];
+    const aliases: string[] = [];
+    
+    // Properly handle different possible formats of aliases in frontmatter
+    if (frontMatter?.aliases) {
+        if (Array.isArray(frontMatter.aliases)) {
+            aliases.push(...frontMatter.aliases.map(alias => 
+                typeof alias === 'string' ? alias.replace(/^- /, '').trim() : ''
+            ).filter(Boolean));
+        } else if (typeof frontMatter.aliases === 'string') {
+            // Handle single alias as string
+            aliases.push(frontMatter.aliases.trim());
+        }
+    }
 
     // Get all files once and cache the result
     const allFiles = app.vault.getFiles();

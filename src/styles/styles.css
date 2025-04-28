@@ -413,53 +413,55 @@
 }
 
 /* Settings Column Headers */
-.settings-columns-header {
+.jots-footlinker-settings .jots-settings-columns-header {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
-    gap: 12px;
-    margin-bottom: 12px;
+    grid-template-columns: minmax(250px, 2fr) minmax(200px, 1fr) auto;
+    gap: 24px;
+    margin: 12px 0 16px;
     padding: 0 12px;
+    align-items: center;
 }
 
-.column-header {
+.jots-footlinker-settings .jots-column-header {
     color: var(--text-muted);
     font-size: 0.8em;
     font-weight: var(--font-medium);
     text-transform: uppercase;
     letter-spacing: 0.1em;
+    padding: 0 12px;
+    text-align: left;
 }
 
-/* Remove default setting name/description spacing */
-.setting-item.no-label {
-    padding: 0;
-    border: none;
-}
-
-/* Grid layout for settings inputs */
-.setting-item.no-label .setting-item-control {
+/* Grid layout for settings items */
+.jots-footlinker-settings .setting-item {
     display: grid;
-    grid-template-columns: 1fr 1fr auto;
+    grid-template-columns: minmax(250px, 2fr) minmax(200px, 1fr) auto;
     gap: 12px;
-    padding: 6px 12px;
+    padding: 12px;
+    align-items: center;
+    border-top: none;
+}
+
+/* Style inputs and controls */
+.jots-footlinker-settings .setting-item-control {
+    display: flex;
+    justify-content: flex-start;
+    gap: 8px;
     align-items: center;
 }
 
-/* Ensure inputs take full width of their grid cell */
-.setting-item.no-label .setting-item-control input {
+/* Make inputs take full width */
+.jots-footlinker-settings .setting-item-control input[type='text'] {
     width: 100%;
 }
 
-/* Style the trash button container */
-.setting-item.no-label .setting-item-control .clickable-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-muted);
-    opacity: 0.8;
-    transition: opacity 0.15s ease;
+/* Remove any specific width constraints on the first input */
+.jots-footlinker-settings .setting-item-control:first-of-type input[type='text'] {
+    min-width: unset;
 }
 
-.setting-item.no-label .setting-item-control .clickable-icon:hover {
-    opacity: 1;
-    color: var(--text-error);
+/* Position the delete button */
+.jots-footlinker-settings .setting-item .clickable-icon {
+    grid-column: 3;
+    justify-self: end;
 }

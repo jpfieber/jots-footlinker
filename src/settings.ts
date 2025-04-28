@@ -134,9 +134,9 @@ export class FootLinkerSettingTab extends PluginSettingTab {
     containerEl.createEl('p', { text: 'Sections of files grouped by folder and related by date.' });
 
     // Create column headers container
-    const headerContainer = containerEl.createDiv({ cls: 'settings-columns-header' });
-    headerContainer.createSpan({ text: 'Header', cls: 'column-header' });
-    headerContainer.createSpan({ text: 'File Path', cls: 'column-header' });
+    const headerContainer = containerEl.createDiv({ cls: 'jots-settings-columns-header' });
+    headerContainer.createSpan({ text: 'File Path', cls: 'jots-column-header' });
+    headerContainer.createSpan({ text: 'Header', cls: 'jots-column-header' });
 
     // Existing Categories
     if (this.plugin.settings.relatedFiles?.length > 0) {
@@ -144,13 +144,7 @@ export class FootLinkerSettingTab extends PluginSettingTab {
         const setting = new Setting(containerEl);
         setting.settingEl.addClass('no-label');
 
-        setting.addText(text => text
-          .setPlaceholder('Enter header')
-          .setValue(section.label)
-          .onChange(async (value) => {
-            this.plugin.settings.relatedFiles[index].label = value;
-            await this.saveAndRefresh();
-          }))
+        setting
           .addText(text => {
             text
               .setPlaceholder('Enter path')
@@ -163,6 +157,13 @@ export class FootLinkerSettingTab extends PluginSettingTab {
               await this.saveAndRefresh();
             });
           })
+          .addText(text => text
+            .setPlaceholder('Enter header')
+            .setValue(section.label)
+            .onChange(async (value) => {
+              this.plugin.settings.relatedFiles[index].label = value;
+              await this.saveAndRefresh();
+            }))
           .addExtraButton(button => button
             .setIcon('trash')
             .setTooltip('Delete')
@@ -197,8 +198,8 @@ export class FootLinkerSettingTab extends PluginSettingTab {
 
     // Create column headers container for Jots
     const jotsHeaderContainer = containerEl.createDiv({ cls: 'settings-columns-header' });
-    jotsHeaderContainer.createSpan({ text: 'Header', cls: 'column-header' });
     jotsHeaderContainer.createSpan({ text: 'Prefix', cls: 'column-header' });
+    jotsHeaderContainer.createSpan({ text: 'Header', cls: 'column-header' });
 
     // Existing Jot Groups
     if (this.plugin.settings.jotItems?.length > 0) {
@@ -206,18 +207,19 @@ export class FootLinkerSettingTab extends PluginSettingTab {
         const setting = new Setting(containerEl);
         setting.settingEl.addClass('no-label');
 
-        setting.addText(text => text
-          .setPlaceholder('Enter header')
-          .setValue(jot.label)
-          .onChange(async (value) => {
-            this.plugin.settings.jotItems[index].label = value;
-            await this.saveAndRefresh();
-          }))
+        setting
           .addText(text => text
             .setPlaceholder('Task char')
             .setValue(jot.taskChar)
             .onChange(async (value) => {
               this.plugin.settings.jotItems[index].taskChar = value;
+              await this.saveAndRefresh();
+            }))
+          .addText(text => text
+            .setPlaceholder('Enter header')
+            .setValue(jot.label)
+            .onChange(async (value) => {
+              this.plugin.settings.jotItems[index].label = value;
               await this.saveAndRefresh();
             }))
           .addExtraButton(button => button
