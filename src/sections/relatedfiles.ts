@@ -85,11 +85,11 @@ function addRegularLinks(
     const cache = app.metadataCache.getFileCache(activeFile);
     const frontMatter = cache?.frontmatter;
     const aliases: string[] = [];
-    
+
     // Properly handle different possible formats of aliases in frontmatter
     if (frontMatter?.aliases) {
         if (Array.isArray(frontMatter.aliases)) {
-            aliases.push(...frontMatter.aliases.map(alias => 
+            aliases.push(...frontMatter.aliases.map(alias =>
                 typeof alias === 'string' ? alias.replace(/^- /, '').trim() : ''
             ).filter(Boolean));
         } else if (typeof frontMatter.aliases === 'string') {
