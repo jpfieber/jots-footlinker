@@ -31,6 +31,7 @@ interface PluginSettings {
   excludedParentSelectors?: string[];
   excludedFolders?: string[];
   footerOrder?: number;
+  syncFrequencyHours: number;
 }
 
 // Extend App type to include Obsidian's MetadataCache with backlinks
@@ -178,7 +179,8 @@ export default class FootLinkerPlugin extends Plugin {
         activeTab: 'related-files' as const,
         excludedParentSelectors: [],
         excludedFolders: [],
-        footerOrder: 100
+        footerOrder: 100,
+        syncFrequencyHours: 24
       };
 
       // Only merge if we have data
@@ -209,6 +211,9 @@ export default class FootLinkerPlugin extends Plugin {
         }
         if (typeof loadedData.footerOrder === 'number') {
           newSettings.footerOrder = loadedData.footerOrder;
+        }
+        if (typeof loadedData.syncFrequencyHours === 'number') {
+          newSettings.syncFrequencyHours = loadedData.syncFrequencyHours;
         }
       }
 

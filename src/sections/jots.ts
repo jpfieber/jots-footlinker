@@ -29,7 +29,7 @@ function createWikiLink(linkText: string, el: HTMLElement, file: TFile, app: App
 function processTextSegment(text: string, li: HTMLElement, file: TFile, app: App, isEditMode: () => boolean, addSpace: boolean): boolean {
     if (!text.trim()) return addSpace;
 
-    const wikiLinkPattern = /\[\[([^\]]+)\]\]/g;
+    const wikiLinkPattern = /\[\[([^\]]+?)(?:\|([^\]]+))?\]\]/g;
     let lastIndex = 0;
     let match;
     let hasContent = false;
@@ -46,13 +46,14 @@ function processTextSegment(text: string, li: HTMLElement, file: TFile, app: App
             textSpan.textContent = beforeText.replace(/\s*-\s*/g, ' - ');
             hasContent = true;
             addSpace = true;
-        }
-
-        if (addSpace) {
+        } if (addSpace) {
             const spaceSpan = li.createSpan();
             spaceSpan.textContent = ' ';
         }
-        createWikiLink(match[1], li, file, app, isEditMode);
+        // Use display text if provided, otherwise use the path
+        const linkPath = match[1];
+        const displayText = match[2] || linkPath.split('/').pop()?.replace('.md', '') || linkPath;
+        createWikiLink(displayText, li, file, app, isEditMode);
 
         lastIndex = match.index + match[0].length;
         hasContent = true;

@@ -27,7 +27,8 @@ export const DEFAULT_SETTINGS = {
     enabledCategories: ['backlinks', 'related-files', 'jots']
   }],
   jotItems: [] as JotItem[],
-  activeTab: 'related-files' as 'related-files' | 'footer-notes'
+  activeTab: 'related-files' as 'related-files' | 'footer-notes',
+  syncFrequencyHours: 24
 };
 
 type PluginSettings = typeof DEFAULT_SETTINGS;
@@ -254,6 +255,20 @@ export class FootLinkerSettingTab extends PluginSettingTab {
   displayFooterNotesSettings(containerEl: HTMLElement) {
     containerEl.createEl('h3', { text: 'Notes with Footers' });
     containerEl.createEl('p', { text: 'Configure which folders should display footers and what to show in each.' });
+
+    // Add Sync Frequency setting
+    new Setting(containerEl)
+      .setName('Sync Frequency')
+      .setDesc('How often the footers should update (in hours)')
+      .addText(text => text
+        .setValue(String(this.plugin.settings.syncFrequencyHours))
+        .onChange(async (value) => {
+          const hours = parseInt(value, 10);
+          if (!isNaN(hours) && hours > 0) {
+            this.plugin.settings.syncFrequencyHours = hours;
+            await this.saveAndRefresh();
+          }
+        }));
 
     // Add New Path Button
     new Setting(containerEl)

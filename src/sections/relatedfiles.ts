@@ -43,7 +43,6 @@ function addJournalLinks(
     const [year, month, day] = grabparts;
     const newdate = year + month + day;
 
-    // Process categories in chunks to prevent UI blocking
     let currentCategory = 0;
     const processNextCategory = () => {
         if (currentCategory >= enabledCategories.length) return;
@@ -51,11 +50,10 @@ function addJournalLinks(
         const category = enabledCategories[currentCategory];
         const sectionPath = `${category.path}/${year}/${year}-${month}`;
 
-        // Use cached files instead of doing a full vault search
         const sectionFiles = app.vault.getFiles()
             .filter((f: TFile) => f.path.includes(sectionPath) && f.name.includes(newdate))
             .sort((a: TFile, b: TFile) => a.name.localeCompare(b.name))
-            .map((f: TFile) => f.path);
+            .map((f: TFile) => `[[${f.path}|${f.basename.split(" -- ").pop() || f.basename}]]`);
 
         if (sectionFiles.length > 0) {
             createSectionElement(footLinker, category, sectionFiles, file, setupLinkBehavior, isEditMode);
@@ -81,40 +79,34 @@ function addRegularLinks(
     const activeFile = app.workspace.getActiveFile();
     if (!activeFile) return;
 
-    // Get cache once instead of per category
     const cache = app.metadataCache.getFileCache(activeFile);
     const frontMatter = cache?.frontmatter;
     const aliases: string[] = [];
 
-    // Properly handle different possible formats of aliases in frontmatter
     if (frontMatter?.aliases) {
         if (Array.isArray(frontMatter.aliases)) {
             aliases.push(...frontMatter.aliases.map(alias =>
                 typeof alias === 'string' ? alias.replace(/^- /, '').trim() : ''
             ).filter(Boolean));
         } else if (typeof frontMatter.aliases === 'string') {
-            // Handle single alias as string
             aliases.push(frontMatter.aliases.trim());
         }
     }
 
-    // Get all files once and cache the result
     const allFiles = app.vault.getFiles();
 
-    // Process categories in chunks
     let currentCategory = 0;
     const processNextCategory = () => {
         if (currentCategory >= enabledCategories.length) return;
 
         const category = enabledCategories[currentCategory];
 
-        // Filter files for this category
         const sectionFiles = allFiles
             .filter((f: TFile) =>
                 f.path.includes(category.path) &&
                 (f.name.includes(activeFile.basename) || aliasesContains(f.name, aliases)))
             .sort((a: TFile, b: TFile) => b.name.localeCompare(a.name))
-            .map((f: TFile) => f.path);
+            .map((f: TFile) => `[[${f.path}|${f.basename.split(" -- ").pop() || f.basename}]]`);
 
         if (sectionFiles.length > 0) {
             createSectionElement(footLinker, category, sectionFiles, activeFile, setupLinkBehavior, isEditMode);
@@ -127,6 +119,24 @@ function addRegularLinks(
     };
 
     processNextCategory();
+}
+
+function processLinkPath(linkPath: string): { displayText: string; filePath: string } {    // Extract wiki-link with pipe syntax, allowing paths to contain pipes
+    const wikiLinkRegex = /\[\[([^\]]+?)(?:\|([^\]]+))?\]\]/;
+    const match = linkPath.match(wikiLinkRegex); if (match) {
+        // match[1] contains the full path, match[2] contains the display text (if any)
+        const filePath = match[1].trim();
+        const displayText = match[2] ? match[2].trim() : filePath.split('/').pop()?.replace('.md', '') || filePath;
+        return { filePath, displayText };
+    }
+
+    // If no wiki-link found, just use the file path and extract basename
+    const basename = linkPath.split("/").pop() || '';
+    const displayName = basename.split(" -- ").pop() || basename;
+    return {
+        filePath: linkPath,
+        displayText: displayName.replace(".md", "")
+    };
 }
 
 function createSectionElement(
@@ -152,15 +162,17 @@ function createSectionElement(
 
         for (let i = start; i < end; i++) {
             const linkPath = sectionFiles[i];
+            const { displayText, filePath } = processLinkPath(linkPath);
+
             const li = sectionUl.createEl("li");
             const link = li.createEl("a", {
-                href: linkPath,
-                text: linkPath.split("/").pop() || '',
+                href: filePath,
+                text: displayText,
                 cls: isEditMode() ? "cm-hmd-internal-link cm-underline" : "internal-link"
             });
-            link.dataset.href = linkPath;
+            link.dataset.href = filePath;
             link.dataset.sourcePath = file.path;
-            setupLinkBehavior(link, linkPath, file);
+            setupLinkBehavior(link, filePath, file);
         }
 
         currentChunk++;
