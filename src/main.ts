@@ -52,19 +52,15 @@ export default class FootLinkerPlugin extends Plugin {
   private settingTab: FootLinkerSettingTab | null = null;
 
   async onload() {
-    console.log("[FootLinker] Starting plugin load...");
+    console.log("FootLinker: Loading Plugin...");
 
     try {
-      console.log("[FootLinker] Loading settings...");
       await this.loadSettings();
 
       if (!this.settings) {
-        console.error("[FootLinker] Settings failed to initialize!");
         throw new Error("Failed to initialize plugin settings");
       }
-      console.log("[FootLinker] Settings loaded successfully:", this.settings);
 
-      console.log("[FootLinker] Initializing update functions...");
       const updateFootLinkerCallback = async () => {
         try {
           await this.updateFootLinker();
@@ -76,23 +72,15 @@ export default class FootLinkerPlugin extends Plugin {
       this.immediateUpdateFootLinker = updateFootLinkerCallback;
       this.debouncedUpdateFootLinker = debounce(updateFootLinkerCallback, 1000, true);
 
-      console.log("[FootLinker] Creating settings tab...");
       this.settingTab = new FootLinkerSettingTab(this.app, this);
       this.addSettingTab(this.settingTab);
 
-      console.log("[FootLinker] Registering event handlers...");
       this.registerEventHandlers();
 
-      console.log("[FootLinker] Waiting for layout ready...");
       this.app.workspace.onLayoutReady(async () => {
         try {
-          console.log("[FootLinker] Loading stylesheet...");
           await this.loadStylesheet();
-
-          console.log("[FootLinker] Performing initial update...");
           await this.immediateUpdateFootLinker();
-
-          console.log("[FootLinker] Initial setup complete!");
         } catch (error) {
           console.error("[FootLinker] Error during layout ready:", error);
         }
@@ -104,48 +92,37 @@ export default class FootLinkerPlugin extends Plugin {
   }
 
   onunload() {
-    console.log("Unloading FootLinker plugin...");
+    console.log("FootLinker: Unloading plugin...");
     this.disconnectObservers();
     this.unloadStylesheet();
     this.settingTab = null;
   }
 
   private async loadStylesheet() {
-    console.log("[FootLinker] Attempting to load stylesheet...");
     try {
-      // Try all possible paths for the CSS file
       const possiblePaths = [
         `${this.app.vault.configDir}/plugins/${this.manifest.id}/styles.css`,
         `${this.app.vault.configDir}/plugins/${this.manifest.id}/dist/styles.css`,
         `${this.app.vault.configDir}/plugins/${this.manifest.id}/src/styles/styles.css`
       ];
 
-      console.log("[FootLinker] Searching for stylesheet in:", possiblePaths);
-
       let css = '';
-      let foundPath = '';
       for (const path of possiblePaths) {
         try {
           css = await this.app.vault.adapter.read(path);
-          foundPath = path;
-          console.log("[FootLinker] Found stylesheet at:", path);
-          break;
+          if (css) break;
         } catch (e) {
-          console.log("[FootLinker] No stylesheet at:", path);
           continue;
         }
       }
 
       if (!css) {
-        console.error("[FootLinker] Could not find styles.css in any expected location");
-        // Try to load embedded default styles as fallback
+        // Use default styles as fallback
         css = DEFAULT_STYLES;
-        console.log("[FootLinker] Using default embedded styles as fallback");
       }
 
       const existingStyle = document.getElementById("footlinker-styles-css");
       if (existingStyle) {
-        console.log("[FootLinker] Removing existing stylesheet");
         existingStyle.remove();
       }
 
@@ -153,11 +130,9 @@ export default class FootLinkerPlugin extends Plugin {
       style.id = "footlinker-styles-css";
       style.textContent = css;
       document.head.appendChild(style);
-      console.log("[FootLinker] Successfully loaded and applied stylesheet");
 
     } catch (error) {
       console.error("[FootLinker] Critical error loading stylesheet:", error);
-      // Don't throw - we can still function without styles
     }
   }
 

@@ -13,7 +13,6 @@ if you want to view the source, please visit the github repository of this plugi
 async function copyStyles() {
     try {
         await fs.copyFile('src/styles/styles.css', 'dist/styles.css');
-        console.log('CSS file copied successfully');
     } catch (err) {
         console.error('Error copying CSS file:', err);
     }
@@ -60,7 +59,6 @@ if (process.argv[2] === '--watch') {
         onRebuild(error, result) {
             if (error) console.error('watch build failed:', error);
             else {
-                console.log('watch build succeeded');
                 copyStyles();
             }
         },
@@ -68,13 +66,10 @@ if (process.argv[2] === '--watch') {
 
     // Build with watch mode
     esbuild.build(buildOptions).then(result => {
-        console.log('watching...');
-
         // Watch the CSS file
         watch('src/styles', async (eventType, filename) => {
             if (filename === 'styles.css') {
                 await copyStyles();
-                console.log('CSS updated');
             }
         });
     });

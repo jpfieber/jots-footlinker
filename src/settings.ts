@@ -37,7 +37,6 @@ export class FootLinkerSettingTab extends PluginSettingTab {
   plugin: FootLinkerPlugin;
 
   constructor(app: App, plugin: FootLinkerPlugin) {
-    console.log("[FootLinker] Constructing settings tab");
     super(app, plugin);
     this.plugin = plugin;
   }
@@ -53,81 +52,71 @@ export class FootLinkerSettingTab extends PluginSettingTab {
   }
 
   display(): void {
-    console.log("[FootLinker] Displaying settings tab");
-    try {
-      const { containerEl } = this;
-      if (!containerEl) {
-        console.error("[FootLinker] No container element found!");
-        return;
-      }
+    const { containerEl } = this;
+    containerEl.empty();
 
-      if (!this.plugin?.settings) {
-        console.error("[FootLinker] Plugin settings not initialized!");
-        return;
-      }
+    this.createUI();
+  }
 
-      containerEl.empty();
-      console.log("[FootLinker] Container cleared, creating UI...");
+  private createUI() {
+    const container = this.containerEl;
 
-      // Create tabs container
-      const tabsContainer = containerEl.createEl('div', { cls: 'jots-settings-tabs' });
+    // Create tabs container
+    const tabsContainer = container.createEl('div', { cls: 'jots-settings-tabs' });
 
-      // Create tab buttons - renamed Related Files to Sections
-      const sectionsBtn = tabsContainer.createEl('div', {
-        cls: ['jots-settings-tab', this.plugin.settings.activeTab === 'related-files' ? 'is-active' : ''].join(' '),
-        text: 'Sections'
-      });
+    // Create tab buttons - renamed Related Files to Sections
+    const sectionsBtn = tabsContainer.createEl('div', {
+      cls: ['jots-settings-tab', this.plugin.settings.activeTab === 'related-files' ? 'is-active' : ''].join(' '),
+      text: 'Sections'
+    });
 
-      const footerNotesBtn = tabsContainer.createEl('div', {
-        cls: ['jots-settings-tab', this.plugin.settings.activeTab === 'footer-notes' ? 'is-active' : ''].join(' '),
-        text: 'Notes with Footers'
-      });
+    const footerNotesBtn = tabsContainer.createEl('div', {
+      cls: ['jots-settings-tab', this.plugin.settings.activeTab === 'footer-notes' ? 'is-active' : ''].join(' '),
+      text: 'Notes with Footers'
+    });
 
-      // Create content containers with initial active state
-      const sectionsContent = containerEl.createEl('div', {
-        cls: ['jots-settings-content', this.plugin.settings.activeTab === 'related-files' ? 'is-active' : ''].join(' ')
-      });
+    // Create content containers with initial active state
+    const sectionsContent = container.createEl('div', {
+      cls: ['jots-settings-content', this.plugin.settings.activeTab === 'related-files' ? 'is-active' : ''].join(' ')
+    });
 
-      const footerNotesContent = containerEl.createEl('div', {
-        cls: ['jots-settings-content', this.plugin.settings.activeTab === 'footer-notes' ? 'is-active' : ''].join(' ')
-      });
+    const footerNotesContent = container.createEl('div', {
+      cls: ['jots-settings-content', this.plugin.settings.activeTab === 'footer-notes' ? 'is-active' : ''].join(' ')
+    });
 
-      // Add click handlers for tabs
-      const setActiveTab = async (
-        tabId: typeof DEFAULT_SETTINGS.activeTab,
-        activeBtn: HTMLElement,
-        activeContent: HTMLElement
-      ) => {
-        [sectionsBtn, footerNotesBtn].forEach(btn =>
-          btn.removeClass('is-active'));
-        [sectionsContent, footerNotesContent].forEach(content =>
-          content.removeClass('is-active'));
-        activeBtn.addClass('is-active');
-        activeContent.addClass('is-active');
-        this.plugin.settings.activeTab = tabId;
-        await this.plugin.saveSettings();
-      };
+    // Add click handlers for tabs
+    const setActiveTab = async (
+      tabId: typeof DEFAULT_SETTINGS.activeTab,
+      activeBtn: HTMLElement,
+      activeContent: HTMLElement
+    ) => {
+      [sectionsBtn, footerNotesBtn].forEach(btn =>
+        btn.removeClass('is-active'));
+      [sectionsContent, footerNotesContent].forEach(content =>
+        content.removeClass('is-active'));
+      activeBtn.addClass('is-active');
+      activeContent.addClass('is-active');
+      this.plugin.settings.activeTab = tabId;
+      await this.plugin.saveSettings();
+    };
 
-      sectionsBtn.addEventListener('click', () =>
-        setActiveTab('related-files', sectionsBtn, sectionsContent));
-      footerNotesBtn.addEventListener('click', () =>
-        setActiveTab('footer-notes', footerNotesBtn, footerNotesContent));
+    sectionsBtn.addEventListener('click', () =>
+      setActiveTab('related-files', sectionsBtn, sectionsContent));
+    footerNotesBtn.addEventListener('click', () =>
+      setActiveTab('footer-notes', footerNotesBtn, footerNotesContent));
 
-      // Set initial active tab based on stored setting
-      switch (this.plugin.settings.activeTab) {
-        case 'footer-notes':
-          setActiveTab('footer-notes', footerNotesBtn, footerNotesContent);
-          break;
-        default:
-          setActiveTab('related-files', sectionsBtn, sectionsContent);
-      }
-
-      // Add content to tabs
-      this.displayRelatedFilesSettings(sectionsContent);
-      this.displayFooterNotesSettings(footerNotesContent);
-    } catch (error) {
-      console.error('Error in display:', error);
+    // Set initial active tab based on stored setting
+    switch (this.plugin.settings.activeTab) {
+      case 'footer-notes':
+        setActiveTab('footer-notes', footerNotesBtn, footerNotesContent);
+        break;
+      default:
+        setActiveTab('related-files', sectionsBtn, sectionsContent);
     }
+
+    // Add content to tabs
+    this.displayRelatedFilesSettings(sectionsContent);
+    this.displayFooterNotesSettings(footerNotesContent);
   }
 
   displayRelatedFilesSettings(containerEl: HTMLElement) {
