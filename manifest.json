@@ -4,7 +4,11 @@
     "version": "1.0.0",
     "minAppVersion": "1.1.0",
     "description": "Adds a footer to notes with useful information such as backlinks, creation date, and last modified date",
-    "author": "Your Name",
-    "authorUrl": "https://github.com/yourusername",
-    "isDesktopOnly": false
+    "author": "Joseph Fieber",
+	"authorUrl": "https://jots.life",
+	"fundingUrl": {
+		"Buy Me a Coffee": "https://www.buymeacoffee.com/jpfieber",
+		"GitHub Sponsors": "https://github.com/sponsors/jpfieber",
+		"PayPal": "https://www.paypal.biz/jpfieber"
+	},    "isDesktopOnly": false
 }

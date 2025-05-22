@@ -53,7 +53,7 @@ function addJournalLinks(
         const sectionFiles = app.vault.getFiles()
             .filter((f: TFile) => f.path.includes(sectionPath) && f.name.includes(newdate))
             .sort((a: TFile, b: TFile) => a.name.localeCompare(b.name))
-            .map((f: TFile) => `[[${f.path}|${f.basename.split(" -- ").pop() || f.basename}]]`);
+            .map((f: TFile) => `[[${f.path}|${f.basename}]]`);
 
         if (sectionFiles.length > 0) {
             createSectionElement(footLinker, category, sectionFiles, file, setupLinkBehavior, isEditMode);
@@ -106,7 +106,7 @@ function addRegularLinks(
                 f.path.includes(category.path) &&
                 (f.name.includes(activeFile.basename) || aliasesContains(f.name, aliases)))
             .sort((a: TFile, b: TFile) => b.name.localeCompare(a.name))
-            .map((f: TFile) => `[[${f.path}|${f.basename.split(" -- ").pop() || f.basename}]]`);
+            .map((f: TFile) => `[[${f.path}|${f.basename}]]`);
 
         if (sectionFiles.length > 0) {
             createSectionElement(footLinker, category, sectionFiles, activeFile, setupLinkBehavior, isEditMode);
@@ -121,21 +121,22 @@ function addRegularLinks(
     processNextCategory();
 }
 
-function processLinkPath(linkPath: string): { displayText: string; filePath: string } {    // Extract wiki-link with pipe syntax, allowing paths to contain pipes
+function processLinkPath(linkPath: string): { displayText: string; filePath: string } {
     const wikiLinkRegex = /\[\[([^\]]+?)(?:\|([^\]]+))?\]\]/;
-    const match = linkPath.match(wikiLinkRegex); if (match) {
+    const match = linkPath.match(wikiLinkRegex);
+    if (match) {
         // match[1] contains the full path, match[2] contains the display text (if any)
         const filePath = match[1].trim();
+        // Use the full basename without splitting
         const displayText = match[2] ? match[2].trim() : filePath.split('/').pop()?.replace('.md', '') || filePath;
         return { filePath, displayText };
     }
 
     // If no wiki-link found, just use the file path and extract basename
     const basename = linkPath.split("/").pop() || '';
-    const displayName = basename.split(" -- ").pop() || basename;
     return {
         filePath: linkPath,
-        displayText: displayName.replace(".md", "")
+        displayText: basename.replace(".md", "")
     };
 }
 
