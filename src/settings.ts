@@ -241,7 +241,8 @@ export class FootLinkerSettingTab extends PluginSettingTab {
         }));
   }
 
-  displayFooterNotesSettings(containerEl: HTMLElement) {    containerEl.createEl('h3', { text: 'Notes with Footers' });
+  displayFooterNotesSettings(containerEl: HTMLElement) {
+    containerEl.createEl('h3', { text: 'Notes with Footers' });
     containerEl.createEl('p', { text: 'Configure which folders should display footers and what to show in each.' });
 
     // Add Global Settings section

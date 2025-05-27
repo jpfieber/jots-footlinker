@@ -91,7 +91,7 @@ export class BacklinksSection implements Section {
                             const count = backlinks[sourcePath] || 0;
                             const li = backlinksUl.createEl("li");
                             const fileName = sourcePath.split("/").pop()?.slice(0, -3) || '';
-                            
+
                             // Create link
                             const link = li.createEl("a", {
                                 href: sourcePath,

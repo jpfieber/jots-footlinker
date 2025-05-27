@@ -36,7 +36,7 @@ interface PluginSettings {
 
 // Import ObsidianApp interface from backlinks module
 export interface ObsidianApp extends App {
-    metadataCache: MetadataCache;
+  metadataCache: MetadataCache;
 }
 
 function aliasesContains(fileName: string, aliases: string[]): boolean {
@@ -333,7 +333,7 @@ export default class FootLinkerPlugin extends Plugin {
       }
 
       this.disconnectObservers();
-      await this.removeExistingFootLinker(view.contentEl);      const footLinker = await this.createFootLinker(file);
+      await this.removeExistingFootLinker(view.contentEl); const footLinker = await this.createFootLinker(file);
       container.querySelectorAll(".footlinker").forEach((el: Element) => el.remove());
       if (footLinker) {
         container.appendChild(footLinker);
