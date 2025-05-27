@@ -1,7 +1,7 @@
 import { Plugin, PluginSettingTab, debounce, MarkdownView, TFile, App, MetadataCache } from 'obsidian';
 import { DEFAULT_SETTINGS, FootLinkerSettingTab } from './settings';
 import { formatDate } from './utils/formatDate';
-import { addBacklinks } from './sections/backlinks';
+import { addBacklinks, BacklinksSection } from './sections/backlinks';
 import { addFootLinks } from './sections/relatedfiles';
 import { addJots } from './sections/jots';
 
@@ -31,12 +31,12 @@ interface PluginSettings {
   excludedParentSelectors?: string[];
   excludedFolders?: string[];
   footerOrder?: number;
-  syncFrequencyHours: number;
+  showBacklinks: boolean;
 }
 
-// Extend App type to include Obsidian's MetadataCache with backlinks
-interface ObsidianAppWithBacklinks extends App {
-  metadataCache: MetadataCache;
+// Import ObsidianApp interface from backlinks module
+export interface ObsidianApp extends App {
+    metadataCache: MetadataCache;
 }
 
 function aliasesContains(fileName: string, aliases: string[]): boolean {
@@ -145,57 +145,39 @@ export default class FootLinkerPlugin extends Plugin {
 
   async loadSettings() {
     try {
+      console.debug("[FootLinker] Loading settings...");
       const loadedData = await this.loadData();
-      // Create a new settings object with defaults
-      const newSettings = {
-        relatedFiles: [],
-        pathSettings: [],
-        jotItems: [],
-        activeTab: 'related-files' as const,
-        excludedParentSelectors: [],
-        excludedFolders: [],
-        footerOrder: 100,
-        syncFrequencyHours: 24
-      };
-
-      // Only merge if we have data
       if (loadedData) {
-        // Merge relatedFiles, preserving IDs
+        // Start with default settings to ensure all fields exist
+        this.settings = {
+          ...DEFAULT_SETTINGS,
+          ...loadedData
+        };
+
+        // Re-map relatedFiles to preserve IDs
         if (Array.isArray(loadedData.relatedFiles)) {
-          newSettings.relatedFiles = loadedData.relatedFiles.map((rf: any) => ({
+          this.settings.relatedFiles = loadedData.relatedFiles.map((rf: any) => ({
             id: rf.id || String(Date.now()),
             label: rf.label || '',
             path: rf.path || ''
           }));
         }
 
-        if (Array.isArray(loadedData.pathSettings)) {
-          newSettings.pathSettings = loadedData.pathSettings;
-        }
-        if (Array.isArray(loadedData.jotItems)) {
-          newSettings.jotItems = loadedData.jotItems;
-        }
-        if (loadedData.activeTab) {
-          newSettings.activeTab = loadedData.activeTab;
-        }
-        if (Array.isArray(loadedData.excludedParentSelectors)) {
-          newSettings.excludedParentSelectors = loadedData.excludedParentSelectors;
-        }
-        if (Array.isArray(loadedData.excludedFolders)) {
-          newSettings.excludedFolders = loadedData.excludedFolders;
-        }
-        if (typeof loadedData.footerOrder === 'number') {
-          newSettings.footerOrder = loadedData.footerOrder;
-        }
-        if (typeof loadedData.syncFrequencyHours === 'number') {
-          newSettings.syncFrequencyHours = loadedData.syncFrequencyHours;
-        }
-      }
+        // Explicitly handle showBacklinks setting
+        this.settings.showBacklinks = loadedData.showBacklinks ?? DEFAULT_SETTINGS.showBacklinks;
 
-      this.settings = newSettings;
+        console.debug("[FootLinker] Settings loaded:", {
+          backlinksEnabled: this.settings.showBacklinks,
+          pathSettingsCount: this.settings.pathSettings?.length,
+          relatedFilesCount: this.settings.relatedFiles.length
+        });
+      } else {
+        console.debug("[FootLinker] No saved settings found, using defaults");
+        this.settings = { ...DEFAULT_SETTINGS };
+      }
     } catch (error) {
-      console.error('Failed to load settings:', error);
-      this.settings = DEFAULT_SETTINGS;
+      console.error('[FootLinker] Failed to load settings:', error);
+      this.settings = { ...DEFAULT_SETTINGS };
     }
   }
 
@@ -249,6 +231,7 @@ export default class FootLinkerPlugin extends Plugin {
   }
 
   async createFootLinker(file: TFile) {
+    console.debug("[FootLinker] Creating footer for file:", file.path);
     const footLinker = createDiv({ cls: "footlinker footlinker--hidden" });
 
     // Set CSS custom properties for ordering using the setting
@@ -257,36 +240,81 @@ export default class FootLinkerPlugin extends Plugin {
 
     footLinker.createDiv({ cls: "footlinker--dashed-line" });
 
-    const pathSetting = this.findMatchingPathSetting(file.path);
+    let hasContent = false;
 
+    // Add backlinks section if enabled globally
+    if (this.settings.showBacklinks) {
+      console.debug("[FootLinker] Adding backlinks section...");
+      const backlinksSection = new BacklinksSection();
+      const obsidianApp = this.app as unknown as ObsidianApp;
+      try {
+        await addBacklinks(backlinksSection, footLinker, file, obsidianApp);
+        const hasBacklinksContent = footLinker.querySelector(".footlinker--backlinks") !== null;
+        hasContent = hasContent || hasBacklinksContent;
+        console.debug("[FootLinker] Backlinks section added:", { hasBacklinksContent });
+      } catch (error) {
+        console.error("[FootLinker] Error adding backlinks:", error);
+      }
+    } else {
+      console.debug("[FootLinker] Backlinks are disabled in settings");
+    }
+
+    // Add other sections based on path settings
+    const pathSetting = this.findMatchingPathSetting(file.path);
     if (pathSetting?.enabledCategories?.length) {
-      const enabledCategories = pathSetting.enabledCategories
+      console.debug("[FootLinker] Adding enabled categories from path settings...");
+      // Filter out backlinks from enabledCategories since we handle it separately now
+      let categories = pathSetting.enabledCategories.filter(id => id !== 'backlinks');
+
+      const enabledCategories = categories
         .map(id => this.settings.relatedFiles.find(rf => rf.id === id))
         .filter((category): category is RelatedFile =>
           category !== undefined && !!category.label && !!category.path);
 
-      addFootLinks(
-        footLinker,
-        file,
-        this.app,
-        enabledCategories,
-        this.setupLinkBehavior.bind(this),
-        () => this.isEditMode(null)
-      );
+      if (enabledCategories.length > 0) {
+        try {
+          addFootLinks(
+            footLinker,
+            file,
+            this.app,
+            enabledCategories,
+            this.setupLinkBehavior.bind(this),
+            () => this.isEditMode(null)
+          );
+          hasContent = hasContent || true;
+        } catch (error) {
+          console.error("[FootLinker] Error adding foot links:", error);
+        }
+      }
     }
 
     // Add jots section if there are any configured jot items
     if (this.settings.jotItems?.length > 0) {
-      await addJots(
-        footLinker,
-        file,
-        this.app,
-        this.settings.jotItems,
-        () => this.isEditMode(null)
-      );
+      console.debug("[FootLinker] Adding jots section...");
+      try {
+        await addJots(
+          footLinker,
+          file,
+          this.app,
+          this.settings.jotItems,
+          () => this.isEditMode(null)
+        );
+        hasContent = hasContent || footLinker.querySelector(".footlinker--jots") !== null;
+      } catch (error) {
+        console.error("[FootLinker] Error adding jots:", error);
+      }
     }
 
-    setTimeout(() => footLinker.removeClass("footlinker--hidden"), 10);
+    // Only show the footer if it has content
+    if (hasContent) {
+      console.debug("[FootLinker] Footer has content, showing after delay");
+      setTimeout(() => footLinker.removeClass("footlinker--hidden"), 50);
+    } else {
+      console.debug("[FootLinker] Footer has no content, removing");
+      footLinker.remove();
+      return null;
+    }
+
     return footLinker;
   }
 
@@ -305,12 +333,12 @@ export default class FootLinkerPlugin extends Plugin {
       }
 
       this.disconnectObservers();
-      await this.removeExistingFootLinker(view.contentEl);
-
-      const footLinker = await this.createFootLinker(file);
+      await this.removeExistingFootLinker(view.contentEl);      const footLinker = await this.createFootLinker(file);
       container.querySelectorAll(".footlinker").forEach((el: Element) => el.remove());
-      container.appendChild(footLinker);
-      this.observeContainer(container);
+      if (footLinker) {
+        container.appendChild(footLinker);
+        this.observeContainer(container);
+      }
     } catch (error) {
       console.error("Error in addFootLinker:", error);
     }
